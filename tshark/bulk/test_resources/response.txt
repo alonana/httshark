@@ -1,0 +1,19 @@
+
+
+  {
+    "_index": "packets-2020-04-06",
+    "_type": "pcap_file",
+    "_score": null,
+    "_source": {
+      "layers": {
+        "frame.time_epoch": ["1586165862.021682165"],
+        "tcp.stream": ["0"],
+        "http.file_data": ["<!doctype html>\n<html>\n<head>\n    <title>Example Domain<\/title>\n\n    <meta charset=\"utf-8\" \/>\n    <meta http-equiv=\"Content-type\" content=\"text\/html; charset=utf-8\" \/>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" \/>\n    <style type=\"text\/css\">\n    body {\n        background-color: #f0f0f2;\n        margin: 0;\n        padding: 0;\n        font-family: -apple-system, system-ui, BlinkMacSystemFont, \"Segoe UI\", \"Open Sans\", \"Helvetica Neue\", Helvetica, Arial, sans-serif;\n        \n    }\n    div {\n        width: 600px;\n        margin: 5em auto;\n        padding: 2em;\n        background-color: #fdfdff;\n        border-radius: 0.5em;\n        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);\n    }\n    a:link, a:visited {\n        color: #38488f;\n        text-decoration: none;\n    }\n    @media (max-width: 700px) {\n        div {\n            margin: 0 auto;\n            width: auto;\n        }\n    }\n    <\/style>    \n<\/head>\n\n<body>\n<div>\n    <h1>Example Domain<\/h1>\n    <p>This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.<\/p>\n    <p><a href=\"https:\/\/www.iana.org\/domains\/example\">More information...<\/a><\/p>\n<\/div>\n<\/body>\n<\/html>\n"],
+        "http.response": ["1"],
+        "http.response.version": ["HTTP\/1.1"],
+        "http.response.code": ["200"],
+        "http.response.line": ["Age: 330698\r\n","Cache-Control: max-age=604800\r\n","Content-Type: text\/html; charset=UTF-8\r\n","Date: Mon, 06 Apr 2020 09:37:42 GMT\r\n","Etag: \"3147526947+ident\"\r\n","Expires: Mon, 13 Apr 2020 09:37:42 GMT\r\n","Last-Modified: Thu, 17 Oct 2019 07:18:26 GMT\r\n","Server: ECS (bsa\/EB17)\r\n","Vary: Accept-Encoding\r\n","X-Cache: HIT\r\n","Content-Length: 1256\r\n"]
+      }
+    }
+  }
+

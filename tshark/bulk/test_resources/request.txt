@@ -1,0 +1,17 @@
+  {
+    "_index": "packets-2020-04-06",
+    "_type": "pcap_file",
+    "_score": null,
+    "_source": {
+      "layers": {
+        "frame.time_epoch": ["1586165861.751442868"],
+        "tcp.stream": ["0"],
+        "http.request": ["1"],
+        "http.request.method": ["GET"],
+        "http.request.version": ["HTTP\/1.1"],
+        "http.request.line": ["Host: example.com\r\n","User-Agent: curl\/7.58.0\r\n","Accept: *\/*\r\n"]
+      }
+    }
+  }
+
+

@@ -6,19 +6,15 @@ import (
 	"github.com/alonana/httshark/core"
 	"io"
 	"os/exec"
-	"strings"
 )
 
-type JsonProcessor func(data string)
+type LineProcessor func(line string)
 
 type CommandLine struct {
-	lines     chan string
-	Processor JsonProcessor
+	Processor LineProcessor
 }
 
 func (c *CommandLine) Start() error {
-	c.lines = make(chan string, core.Config.ChannelBuffer)
-
 	//TODO: support multiple IPs
 	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port 80 and host %v' -d 'tcp.port==80,http' -Y http -T json",
 		core.Config.Device,
@@ -55,7 +51,6 @@ func (c *CommandLine) Start() error {
 		return fmt.Errorf("start command failed: %v", err)
 	}
 
-	go c.aggregateJson()
 	go c.streamRead(stderr, false)
 	go c.streamRead(stdout, true)
 
@@ -75,28 +70,7 @@ func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 		}
 		core.V5("read line: %v", line)
 		if collectJson {
-			c.lines <- line
-		}
-	}
-}
-
-func (c *CommandLine) aggregateJson() {
-	var lines []string
-	collect := false
-	for {
-		line := <-c.lines
-		if line == "  {" {
-			collect = true
-		}
-		if collect {
-			lines = append(lines, line)
-		}
-		if line == "  }" {
-			data := strings.Join(lines, "")
-			core.V5("json data is %v", data)
-			c.Processor(data)
-			lines = nil
-			collect = false
+			c.Processor(line)
 		}
 	}
 }

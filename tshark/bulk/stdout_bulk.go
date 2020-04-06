@@ -1,47 +1,71 @@
-package tshark
+package bulk
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/alonana/httshark/core"
+	"github.com/alonana/httshark/tshark/types"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type HttpProcessor func(interface{})
 
-type Json struct {
-	json      chan string
-	Processor HttpProcessor
+type StdoutBulkProcessor struct {
+	json        chan string
+	Processor   HttpProcessor
+	waitGroup   sync.WaitGroup
+	stopChannel chan bool
+	stopped     bool
 }
 
-func (j *Json) Start() {
-	j.json = make(chan string, core.Config.ChannelBuffer)
-	go j.parseJson()
+func (p *StdoutBulkProcessor) Start() {
+	p.stopChannel = make(chan bool)
+	p.json = make(chan string, core.Config.ChannelBuffer)
+	p.stopped = false
+	p.waitGroup.Add(1)
+	go p.parseJson()
 }
 
-func (j *Json) Queue(data string) {
-	j.json <- data
+func (p *StdoutBulkProcessor) Stop() {
+	p.stopChannel <- true
+	p.waitGroup.Wait()
 }
 
-func (j *Json) parseJson() {
-	for {
-		data := <-j.json
-		var entry StdoutJson
-		err := json.Unmarshal([]byte(data), &entry)
-		if err != nil {
-			core.Warn("parse JSON %v failed:%v", data, err)
+func (p *StdoutBulkProcessor) Queue(data string) {
+	p.json <- data
+}
+
+func (p *StdoutBulkProcessor) parseJson() {
+	for !p.stopped {
+		select {
+		case data := <-p.json:
+			var entry types.Stdout
+			err := json.Unmarshal([]byte(data), &entry)
+			if err == nil {
+				p.convert(&entry)
+			} else {
+				core.Warn("parse tshark stdout JSON %v failed:%v", data, err)
+			}
+			break
+
+		case <-p.stopChannel:
+			core.V1("stdout bulk processor stopping")
+			p.stopped = true
+			break
 		}
-		j.convert(&entry)
 	}
+
+	p.waitGroup.Done()
 }
 
-func (j *Json) convert(tsharkJson *StdoutJson) {
+func (p *StdoutBulkProcessor) convert(tsharkJson *types.Stdout) {
 	core.V5("json entry is %+v", tsharkJson)
 	layers := tsharkJson.Source.Layers
 
-	entryTime, err := j.parseTime(&layers)
+	entryTime, err := p.parseTime(&layers)
 	if err != nil {
 		core.Warn("parse time in %v failed: %v", tsharkJson, err)
 		return
@@ -85,7 +109,7 @@ func (j *Json) convert(tsharkJson *StdoutJson) {
 			Query:     query,
 		}
 
-		j.Processor(request)
+		p.Processor(request)
 	} else {
 		code, err := strconv.Atoi(layers.ResponseCode[0])
 		if err != nil {
@@ -100,12 +124,12 @@ func (j *Json) convert(tsharkJson *StdoutJson) {
 			Code:      code,
 		}
 
-		j.Processor(response)
+		p.Processor(response)
 	}
 
 }
 
-func (j *Json) parseTime(layers *Layers) (*time.Time, error) {
+func (p *StdoutBulkProcessor) parseTime(layers *types.Layers) (*time.Time, error) {
 	epoc := strings.Split(layers.Time[0], ".")
 	seconds, err := strconv.ParseInt(epoc[0], 10, 64)
 	if err != nil {

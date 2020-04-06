@@ -1,6 +1,6 @@
-package tshark
+package types
 
-type StdoutJson struct {
+type Stdout struct {
 	Source Source `json:"_source"`
 }
 
