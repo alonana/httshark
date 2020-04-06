@@ -8,6 +8,7 @@ import (
 
 type Configuration = struct {
 	ChannelBuffer   int
+	Port            int
 	Verbose         int
 	Hosts           string
 	Device          string
@@ -21,6 +22,7 @@ var Config Configuration
 func ParseFlags() {
 	flag.IntVar(&Config.ChannelBuffer, "channel-buffer", 10, "channel buffer size")
 	flag.IntVar(&Config.Verbose, "verbose", 0, "print verbose information 0=nothing 5=all")
+	flag.IntVar(&Config.Port, "port", 80, "filter packets for this port")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "hal files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", "", "comma separated list of IPs to sample. Empty list to sample all hosts")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")

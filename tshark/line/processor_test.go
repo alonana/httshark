@@ -13,9 +13,9 @@ type DummyTestData struct {
 }
 
 func TestEmpty(t *testing.T) {
-	s := StdoutLineProcessor{}
-	s.Start()
-	s.Stop()
+	p := Processor{}
+	p.Start()
+	p.Stop()
 }
 
 func TestRequest(t *testing.T) {
@@ -32,18 +32,18 @@ func runRecord(t *testing.T, name string) {
 
 	var parsed []string
 
-	s := StdoutLineProcessor{
+	p := Processor{
 		BulkProcessor: func(line string) {
 			parsed = append(parsed, line)
 		},
 	}
-	s.Start()
+	p.Start()
 
 	for i := 0; i < len(lines); i++ {
-		s.Queue(lines[i])
+		p.Queue(lines[i])
 	}
 
-	s.Stop()
+	p.Stop()
 
 	if len(parsed) != 1 {
 		t.Fatalf("expected one item, but got %v", len(parsed))

@@ -8,9 +8,9 @@ import (
 )
 
 func TestEmpty(t *testing.T) {
-	s := StdoutBulkProcessor{}
-	s.Start()
-	s.Stop()
+	p := Processor{}
+	p.Start()
+	p.Stop()
 }
 
 func TestRequest(t *testing.T) {
@@ -35,14 +35,14 @@ func runRecord(t *testing.T, name string) interface{} {
 
 	var parsed []interface{}
 
-	s := StdoutBulkProcessor{
-		Processor: func(i interface{}) {
+	p := Processor{
+		HttpProcessor: func(i interface{}) {
 			parsed = append(parsed, i)
 		},
 	}
-	s.Start()
-	s.Queue(data)
-	s.Stop()
+	p.Start()
+	p.Queue(data)
+	p.Stop()
 
 	if len(parsed) != 1 {
 		t.Fatalf("expected one item, but got %v", len(parsed))

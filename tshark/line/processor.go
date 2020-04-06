@@ -8,7 +8,7 @@ import (
 
 type BulkProcessor func(data string)
 
-type StdoutLineProcessor struct {
+type Processor struct {
 	lines         chan string
 	BulkProcessor BulkProcessor
 	waitGroup     sync.WaitGroup
@@ -16,7 +16,7 @@ type StdoutLineProcessor struct {
 	stopped       bool
 }
 
-func (p *StdoutLineProcessor) Start() {
+func (p *Processor) Start() {
 	p.stopped = false
 	p.stopChannel = make(chan bool)
 	p.lines = make(chan string, core.Config.ChannelBuffer)
@@ -24,16 +24,16 @@ func (p *StdoutLineProcessor) Start() {
 	go p.aggregate()
 }
 
-func (p *StdoutLineProcessor) Stop() {
+func (p *Processor) Stop() {
 	p.stopChannel <- true
 	p.waitGroup.Wait()
 }
 
-func (p *StdoutLineProcessor) Queue(line string) {
+func (p *Processor) Queue(line string) {
 	p.lines <- line
 }
 
-func (p *StdoutLineProcessor) aggregate() {
+func (p *Processor) aggregate() {
 	var lines []string
 	collect := false
 	for !p.stopped {

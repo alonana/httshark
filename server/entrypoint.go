@@ -24,10 +24,10 @@ func (p *EntryPoint) Run() {
 	correlator := tshark.Correlator{Processor: exporter.Queue}
 	correlator.Start()
 
-	stdoutBulkProcessor := bulk.StdoutBulkProcessor{Processor: correlator.Queue}
+	stdoutBulkProcessor := bulk.Processor{HttpProcessor: correlator.Queue}
 	stdoutBulkProcessor.Start()
 
-	stdoutLineProcessor := line.StdoutLineProcessor{BulkProcessor: stdoutBulkProcessor.Queue}
+	stdoutLineProcessor := line.Processor{BulkProcessor: stdoutBulkProcessor.Queue}
 	stdoutLineProcessor.Start()
 
 	t := tshark.CommandLine{

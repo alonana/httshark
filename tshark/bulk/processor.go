@@ -13,15 +13,15 @@ import (
 
 type HttpProcessor func(interface{})
 
-type StdoutBulkProcessor struct {
-	json        chan string
-	Processor   HttpProcessor
-	waitGroup   sync.WaitGroup
-	stopChannel chan bool
-	stopped     bool
+type Processor struct {
+	json          chan string
+	HttpProcessor HttpProcessor
+	waitGroup     sync.WaitGroup
+	stopChannel   chan bool
+	stopped       bool
 }
 
-func (p *StdoutBulkProcessor) Start() {
+func (p *Processor) Start() {
 	p.stopChannel = make(chan bool)
 	p.json = make(chan string, core.Config.ChannelBuffer)
 	p.stopped = false
@@ -29,16 +29,16 @@ func (p *StdoutBulkProcessor) Start() {
 	go p.parseJson()
 }
 
-func (p *StdoutBulkProcessor) Stop() {
+func (p *Processor) Stop() {
 	p.stopChannel <- true
 	p.waitGroup.Wait()
 }
 
-func (p *StdoutBulkProcessor) Queue(data string) {
+func (p *Processor) Queue(data string) {
 	p.json <- data
 }
 
-func (p *StdoutBulkProcessor) parseJson() {
+func (p *Processor) parseJson() {
 	for !p.stopped {
 		select {
 		case data := <-p.json:
@@ -61,7 +61,7 @@ func (p *StdoutBulkProcessor) parseJson() {
 	p.waitGroup.Done()
 }
 
-func (p *StdoutBulkProcessor) convert(tsharkJson *types.Stdout) {
+func (p *Processor) convert(tsharkJson *types.Stdout) {
 	core.V5("json entry is %+v", tsharkJson)
 	layers := tsharkJson.Source.Layers
 
@@ -109,7 +109,7 @@ func (p *StdoutBulkProcessor) convert(tsharkJson *types.Stdout) {
 			Query:     query,
 		}
 
-		p.Processor(request)
+		p.HttpProcessor(request)
 	} else {
 		code, err := strconv.Atoi(layers.ResponseCode[0])
 		if err != nil {
@@ -124,12 +124,12 @@ func (p *StdoutBulkProcessor) convert(tsharkJson *types.Stdout) {
 			Code:      code,
 		}
 
-		p.Processor(response)
+		p.HttpProcessor(response)
 	}
 
 }
 
-func (p *StdoutBulkProcessor) parseTime(layers *types.Layers) (*time.Time, error) {
+func (p *Processor) parseTime(layers *types.Layers) (*time.Time, error) {
 	epoc := strings.Split(layers.Time[0], ".")
 	seconds, err := strconv.ParseInt(epoc[0], 10, 64)
 	if err != nil {

@@ -16,8 +16,9 @@ type CommandLine struct {
 
 func (c *CommandLine) Start() error {
 	//TODO: support multiple IPs
-	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port 80 and host %v' -d 'tcp.port==80,http' -Y http -T json",
+	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port %v and host %v' -d 'tcp.port==80,http' -Y http -T json",
 		core.Config.Device,
+		core.Config.Port,
 		core.Config.Hosts)
 
 	args += " -e frame.time_epoch"
