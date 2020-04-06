@@ -67,11 +67,22 @@ func (j *Json) convert(tsharkJson *StdoutJson) {
 	if len(layers.IsRequest) > 0 {
 		httpEntry.Version = layers.RequestVersion[0]
 		httpEntry.Headers = layers.RequestLine
+
+		path := "/"
+		if len(layers.RequestPath) > 0 {
+			path = layers.RequestPath[0]
+		}
+
+		query := ""
+		if len(layers.RequestQuery) > 0 {
+			query = layers.RequestQuery[0]
+		}
+
 		request := core.HttpRequest{
 			HttpEntry: httpEntry,
 			Method:    layers.RequestMethod[0],
-			Path:      layers.RequestPath[0],
-			Query:     layers.RequestQuery[0],
+			Path:      path,
+			Query:     query,
 		}
 
 		j.Processor(request)

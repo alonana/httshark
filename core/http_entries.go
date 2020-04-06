@@ -24,5 +24,5 @@ type HttpResponse struct {
 
 type HttpTransaction struct {
 	Request  HttpRequest
-	Response HttpResponse
+	Response *HttpResponse
 }

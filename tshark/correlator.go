@@ -59,7 +59,7 @@ func (c *Correlator) updateResponse(response *core.HttpResponse) {
 
 	transaction := core.HttpTransaction{
 		Request:  request,
-		Response: *response,
+		Response: response,
 	}
 
 	delete(c.requests, response.Stream)
