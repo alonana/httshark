@@ -6,6 +6,7 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/har"
 	"io/ioutil"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -93,8 +94,23 @@ func (e *Exporter) convert(transaction core.HttpTransaction) har.Entry {
 	response := transaction.Response
 
 	duration := 0
+	harResponse := har.Response{
+		Cookies:     make([]har.Cookie, 0),
+		HeadersSize: -1,
+		Content: har.Content{
+			Size:     0,
+			MimeType: "",
+			Text:     "",
+		},
+	}
 	if response != nil {
 		duration = int(response.Time.Sub(*request.Time).Milliseconds())
+		harResponse.Status = response.Code
+		harResponse.Headers = e.getHeaders(response.Headers)
+		harResponse.HttpVersion = response.Version
+		harResponse.BodySize = len(response.Data)
+		harResponse.Content.Size = len(response.Data)
+		harResponse.Content.Text = response.Data
 	}
 
 	return har.Entry{
@@ -105,32 +121,61 @@ func (e *Exporter) convert(transaction core.HttpTransaction) har.Entry {
 			Url:         request.Path,
 			HttpVersion: request.Version,
 			Headers:     e.getHeaders(request.Headers),
+			QueryString: e.getQueryString(request.Query),
+			Cookies:     make([]har.Cookie, 0),
+			HeadersSize: -1,
+			BodySize:    len(request.Data),
+			Content: har.Content{
+				Size:     len(request.Data),
+				MimeType: "",
+				Text:     request.Data,
+			},
 		},
+		Response: harResponse,
 	}
 }
 
-func (e *Exporter) getHeaders(headers []string) []har.Header {
-	harHeaders := make([]har.Header, len(headers))
+func (e *Exporter) getHeaders(headers []string) []har.Pair {
+	harHeaders := make([]har.Pair, len(headers))
 	for i := 0; i < len(headers); i++ {
 		harHeaders[i] = e.getHeader(headers[i])
 	}
 	return harHeaders
 }
 
-func (e *Exporter) getHeader(header string) har.Header {
+func (e *Exporter) getHeader(header string) har.Pair {
 	position := strings.Index(header, ":")
 
 	if position == -1 {
-		return har.Header{
+		return har.Pair{
 			Name:  header,
 			Value: "",
 		}
 	}
 
-	halHeader := har.Header{
+	halHeader := har.Pair{
 		Name:  strings.TrimSpace(header[0:position]),
 		Value: strings.TrimSpace(header[position+1:]),
 	}
 
 	return halHeader
+}
+
+func (e *Exporter) getQueryString(query string) []har.Pair {
+	queryString := make([]har.Pair, 0)
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		core.Warn("parse query string %v failed: %v", query, err)
+		return queryString
+	}
+
+	for k, v := range values {
+		pair := har.Pair{
+			Name:  k,
+			Value: v[0],
+		}
+		queryString = append(queryString, pair)
+	}
+
+	return queryString
 }
