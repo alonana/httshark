@@ -4,7 +4,8 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/tshark"
 	"github.com/alonana/httshark/tshark/bulk"
-	correlator2 "github.com/alonana/httshark/tshark/correlator"
+	"github.com/alonana/httshark/tshark/correlator"
+	"github.com/alonana/httshark/tshark/exporter"
 	"github.com/alonana/httshark/tshark/line"
 	"os"
 	"os/signal"
@@ -19,13 +20,13 @@ func (p *EntryPoint) Run() {
 	core.ParseFlags()
 	core.Info("Starting")
 
-	exporter := tshark.Exporter{}
-	exporter.Start()
+	exporterProcessor := exporter.CreateProcessor()
+	exporterProcessor.Start()
 
-	correlator := correlator2.Processor{Processor: exporter.Queue}
-	correlator.Start()
+	correlatorProcessor := correlator.Processor{Processor: exporterProcessor.Queue}
+	correlatorProcessor.Start()
 
-	bulkProcessor := bulk.Processor{HttpProcessor: correlator.Queue}
+	bulkProcessor := bulk.Processor{HttpProcessor: correlatorProcessor.Queue}
 	bulkProcessor.Start()
 
 	lineProcessor := line.Processor{BulkProcessor: bulkProcessor.Queue}
@@ -46,5 +47,7 @@ func (p *EntryPoint) Run() {
 	core.Info("Termination initiated")
 	lineProcessor.Stop()
 	bulkProcessor.Stop()
+	correlatorProcessor.Stop()
+	exporterProcessor.Stop()
 	core.Info("Terminating complete")
 }

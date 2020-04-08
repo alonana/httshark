@@ -23,8 +23,8 @@ type Processor struct {
 
 func (p *Processor) Start() {
 	p.stopChannel = make(chan bool)
-	p.json = make(chan string, core.Config.ChannelBuffer)
 	p.stopped = false
+	p.json = make(chan string, core.Config.ChannelBuffer)
 	p.waitGroup.Add(1)
 	go p.parseJson()
 }
@@ -52,7 +52,7 @@ func (p *Processor) parseJson() {
 			break
 
 		case <-p.stopChannel:
-			core.V1("stdout bulk processor stopping")
+			core.V1("bulk processor stopping")
 			p.stopped = true
 			break
 		}

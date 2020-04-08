@@ -12,11 +12,11 @@ type Processor struct {
 	entries     chan interface{}
 	requests    map[int]core.HttpRequest
 	Processor   TransactionProcessor
+	mutex       sync.Mutex
+	ticker      *time.Ticker
 	waitGroup   sync.WaitGroup
 	stopChannel chan bool
 	stopped     bool
-	ticker      *time.Ticker
-	mutex       sync.Mutex
 }
 
 func (p *Processor) Start() {
