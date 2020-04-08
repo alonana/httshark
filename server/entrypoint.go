@@ -4,6 +4,7 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/tshark"
 	"github.com/alonana/httshark/tshark/bulk"
+	correlator2 "github.com/alonana/httshark/tshark/correlator"
 	"github.com/alonana/httshark/tshark/line"
 	"os"
 	"os/signal"
@@ -21,17 +22,17 @@ func (p *EntryPoint) Run() {
 	exporter := tshark.Exporter{}
 	exporter.Start()
 
-	correlator := tshark.Correlator{Processor: exporter.Queue}
+	correlator := correlator2.Processor{Processor: exporter.Queue}
 	correlator.Start()
 
-	stdoutBulkProcessor := bulk.Processor{HttpProcessor: correlator.Queue}
-	stdoutBulkProcessor.Start()
+	bulkProcessor := bulk.Processor{HttpProcessor: correlator.Queue}
+	bulkProcessor.Start()
 
-	stdoutLineProcessor := line.Processor{BulkProcessor: stdoutBulkProcessor.Queue}
-	stdoutLineProcessor.Start()
+	lineProcessor := line.Processor{BulkProcessor: bulkProcessor.Queue}
+	lineProcessor.Start()
 
 	t := tshark.CommandLine{
-		Processor: stdoutLineProcessor.Queue,
+		Processor: lineProcessor.Queue,
 	}
 	err := t.Start()
 	if err != nil {
@@ -43,7 +44,7 @@ func (p *EntryPoint) Run() {
 	<-p.signalsChannel
 
 	core.Info("Termination initiated")
-	stdoutLineProcessor.Stop()
-	stdoutBulkProcessor.Stop()
+	lineProcessor.Stop()
+	bulkProcessor.Stop()
 	core.Info("Terminating complete")
 }

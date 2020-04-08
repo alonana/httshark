@@ -6,6 +6,7 @@ import (
 	"github.com/alonana/httshark/core"
 	"io"
 	"os/exec"
+	"strings"
 )
 
 type LineProcessor func(line string)
@@ -15,11 +16,11 @@ type CommandLine struct {
 }
 
 func (c *CommandLine) Start() error {
-	//TODO: support multiple IPs
-	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port %v and host %v' -d 'tcp.port==80,http' -Y http -T json",
+	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port %v and %v' -d 'tcp.port==%v,http' -Y http -T json",
 		core.Config.Device,
 		core.Config.Port,
-		core.Config.Hosts)
+		c.getHostFilter(),
+		core.Config.Port)
 
 	args += " -e frame.time_epoch"
 	args += " -e tcp.stream"
@@ -56,6 +57,15 @@ func (c *CommandLine) Start() error {
 	go c.streamRead(stdout, true)
 
 	return nil
+}
+
+func (c *CommandLine) getHostFilter() string {
+	if !strings.Contains(core.Config.Hosts, ",") {
+		return fmt.Sprintf("host %v", core.Config.Hosts)
+	}
+
+	filter := strings.Join(strings.Split(core.Config.Hosts, ","), " or host ")
+	return fmt.Sprintf("(host %v)", filter)
 }
 
 func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
