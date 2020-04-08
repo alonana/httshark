@@ -13,6 +13,7 @@ type Configuration = struct {
 	Hosts                 string
 	DropContentTypes      string
 	HarProcessor          string
+	Capture               string
 	Device                string
 	OutputFolder          string
 	ResponseTimeout       time.Duration
@@ -31,6 +32,7 @@ func ParseFlags() {
 	flag.StringVar(&Config.DropContentTypes, "drop-content-type", "image,audio,video", "comma separated list of content type whose body should be removed (case insensitive, using include for match)")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")
 	flag.StringVar(&Config.HarProcessor, "har-processer", "file", "processor of the har file. one of file,memory")
+	flag.StringVar(&Config.Capture, "capture", "tshark", "capture engine to use, one of tshark,httpdump")
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", 5*time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
@@ -49,6 +51,9 @@ func ParseFlags() {
 	}
 	if Config.HarProcessor != "file" && Config.HarProcessor != "memory" {
 		Fatal("invalid har processor specified")
+	}
+	if Config.Capture != "tshark" && Config.Capture != "httpdump" {
+		Fatal("invalid capture specified")
 	}
 	if Config.Hosts == "" {
 		Info("host was not supplied, will capture all IPs")
