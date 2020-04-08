@@ -16,7 +16,7 @@ type CommandLine struct {
 }
 
 func (c *CommandLine) Start() error {
-	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port %v and %v' -d 'tcp.port==%v,http' -Y http -T json",
+	args := fmt.Sprintf("sudo tshark -i %v -f 'tcp port %v %v' -d 'tcp.port==%v,http' -Y http -T json",
 		core.Config.Device,
 		core.Config.Port,
 		c.getHostFilter(),
@@ -60,12 +60,16 @@ func (c *CommandLine) Start() error {
 }
 
 func (c *CommandLine) getHostFilter() string {
+	if len(core.Config.Hosts) == 0 {
+		return ""
+	}
+
 	if !strings.Contains(core.Config.Hosts, ",") {
-		return fmt.Sprintf("host %v", core.Config.Hosts)
+		return fmt.Sprintf("and host %v", core.Config.Hosts)
 	}
 
 	filter := strings.Join(strings.Split(core.Config.Hosts, ","), " or host ")
-	return fmt.Sprintf("(host %v)", filter)
+	return fmt.Sprintf("and (host %v)", filter)
 }
 
 func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {

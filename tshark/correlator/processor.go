@@ -85,7 +85,7 @@ func (p *Processor) updateResponse(response *core.HttpResponse) {
 	p.mutex.Unlock()
 
 	if !exists {
-		core.Warn("got response without request %+v", response)
+		core.V5("got response without request %+v", response)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (p *Processor) checkTimeouts() {
 		return
 	}
 
-	core.V1("%v expired requests located")
+	core.V1("%v expired requests located", len(expired))
 	for i := 0; i < len(expired); i++ {
 		stream := expired[i]
 		request := p.requests[stream]

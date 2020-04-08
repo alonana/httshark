@@ -51,6 +51,6 @@ func ParseFlags() {
 		Fatal("invalid har processor specified")
 	}
 	if Config.Hosts == "" {
-		Fatal("hosts argument must be supplied")
+		Info("host was not supplied, will capture all IPs")
 	}
 }
