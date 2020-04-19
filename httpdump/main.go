@@ -2,10 +2,11 @@ package httpdump
 
 import (
 	"errors"
+	"fmt"
 	"github.com/alonana/httshark/core"
+	"strings"
 	"time"
 
-	"strconv"
 	"sync"
 
 	"github.com/google/gopacket"
@@ -29,18 +30,33 @@ func listenOneSource(handle *pcap.Handle) chan gopacket.Packet {
 }
 
 // set packet capture filter, by ip and port
-func setDeviceFilter(handle *pcap.Handle, filterIP string, filterPort uint16) error {
-	var bpfFilter = "tcp"
-	if filterPort != 0 {
-		bpfFilter += " port " + strconv.Itoa(int(filterPort))
+func setDeviceFilter(handle *pcap.Handle) error {
+	var filter string
+	hosts := core.ProduceHosts(core.Config.Hosts).GetHosts()
+	if len(hosts) == 1 {
+		filter = getHostFilter(hosts[0])
+	} else {
+		var filters []string
+		for i := 0; i < len(hosts); i++ {
+			filters = append(filters, getHostFilter(hosts[i]))
+		}
+
+		filter = fmt.Sprintf("(%v)", strings.Join(filters, ") or ("))
 	}
-	if filterIP != "" {
-		bpfFilter += " ip host " + filterIP
-	}
-	return handle.SetBPFFilter(bpfFilter)
+
+	core.V2("filter is %v", filter)
+	return handle.SetBPFFilter(filter)
 }
 
-func openSingleDevice(device string, filterIP string, filterPort uint16) (localPackets chan gopacket.Packet, err error) {
+func getHostFilter(host core.Host) string {
+	if len(host.Ip) == 0 {
+		return fmt.Sprintf("tcp port %v", host.Port)
+	}
+
+	return fmt.Sprintf("tcp port %v and host %v", host.Port, host.Ip)
+}
+
+func openSingleDevice(device string) (localPackets chan gopacket.Packet, err error) {
 	defer func() {
 		if msg := recover(); msg != nil {
 			switch x := msg.(type) {
@@ -59,7 +75,7 @@ func openSingleDevice(device string, filterIP string, filterPort uint16) (localP
 		return
 	}
 
-	if err := setDeviceFilter(handle, filterIP, filterPort); err != nil {
+	if err := setDeviceFilter(handle); err != nil {
 		logger.Warn("set capture filter failed, ", err)
 	}
 	localPackets = listenOneSource(handle)
@@ -73,15 +89,17 @@ var processor TransactionProcessor
 func RunHttpDump(p TransactionProcessor) {
 	processor = p
 	var err error
-	packets, err := openSingleDevice(core.Config.Device, core.Config.Hosts, uint16(core.Config.Port))
+	packets, err := openSingleDevice(core.Config.Device)
 	if err != nil {
 		core.Fatal("listen on device %v failed, error: %w", core.Config.Device, err)
 	}
 
 	var handler = &HTTPConnectionHandler{}
 	var assembler = newTCPAssembler(handler)
-	assembler.filterIP = core.Config.Hosts
-	assembler.filterPort = uint16(core.Config.Port)
+	//assembler.filterIP = core.Config.Hosts
+	//assembler.filterPort = uint16(core.Config.Port)
+	assembler.filterIP = ""
+	assembler.filterPort = 0
 	var ticker = time.Tick(time.Second * 10)
 
 outer:

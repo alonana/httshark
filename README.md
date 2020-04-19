@@ -97,9 +97,8 @@ to capture TCP packets, and create HTTP transactions from it.
 *  -drop-content-type="image,audio,video": comma separated list of content type whose body should be removed (case insensitive, using include for match)
 *  -export-interval=10s: export HAL to file interval
 *  -har-processer="file": processor of the har file. one of file,memory
-*  -hosts="": comma separated list of IPs to sample. Empty list to sample all hosts
+*  -hosts="": comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090
 *  -output-folder=".": hal files output folder
-*  -port=80: filter packets for this port
 *  -response-check-interval=10s: check timed out responses interval
 *  -response-timeout=5m0s: timeout for waiting for response
 *  -verbose=0: print verbose information 0=nothing 5=all

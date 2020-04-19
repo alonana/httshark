@@ -93,13 +93,15 @@ func (p *Processor) convert(tsharkJson *types.Stdout) {
 		httpEntry.Headers = layers.RequestLine
 
 		path := "/"
-		if len(layers.RequestPath) > 0 {
-			path = layers.RequestPath[0]
-		}
-
 		query := ""
-		if len(layers.RequestQuery) > 0 {
-			query = layers.RequestQuery[0]
+		if len(layers.RequestUri) > 0 {
+			if strings.Contains(layers.RequestUri[0], "?") {
+				sections := strings.Split(layers.RequestUri[0], "?")
+				path = sections[0]
+				query = sections[1]
+			} else {
+				path = layers.RequestUri[0]
+			}
 		}
 
 		request := core.HttpRequest{

@@ -17,8 +17,7 @@ type Layers struct {
 	RequestMethod  []string `json:"http.request.method"`
 	RequestVersion []string `json:"http.request.version"`
 	RequestLine    []string `json:"http.request.line"`
-	RequestPath    []string `json:"http.request.uri.path"`
-	RequestQuery   []string `json:"http.request.uri.query"`
+	RequestUri     []string `json:"http.request.uri"`
 
 	IsResponse      []string `json:"http.response"`
 	ResponseVersion []string `json:"http.response.version"`

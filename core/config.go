@@ -8,7 +8,6 @@ import (
 
 type Configuration = struct {
 	ChannelBuffer         int
-	Port                  int
 	Verbose               int
 	Hosts                 string
 	DropContentTypes      string
@@ -26,9 +25,8 @@ var Config Configuration
 func ParseFlags() {
 	flag.IntVar(&Config.ChannelBuffer, "channel-buffer", 1, "channel buffer size")
 	flag.IntVar(&Config.Verbose, "verbose", 0, "print verbose information 0=nothing 5=all")
-	flag.IntVar(&Config.Port, "port", 80, "filter packets for this port")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "hal files output folder")
-	flag.StringVar(&Config.Hosts, "hosts", "", "comma separated list of IPs to sample. Empty list to sample all hosts")
+	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
 	flag.StringVar(&Config.DropContentTypes, "drop-content-type", "image,audio,video", "comma separated list of content type whose body should be removed (case insensitive, using include for match)")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")
 	flag.StringVar(&Config.HarProcessor, "har-processer", "file", "processor of the har file. one of file,memory")
@@ -56,6 +54,6 @@ func ParseFlags() {
 		Fatal("invalid capture specified")
 	}
 	if Config.Hosts == "" {
-		Info("host was not supplied, will capture all IPs")
+		Info("hosts were not supplied, will capture all IPs on port 80")
 	}
 }
