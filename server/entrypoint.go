@@ -2,11 +2,11 @@ package server
 
 import (
 	"github.com/alonana/httshark/core"
+	"github.com/alonana/httshark/exporters"
 	"github.com/alonana/httshark/httpdump"
 	"github.com/alonana/httshark/tshark"
 	"github.com/alonana/httshark/tshark/bulk"
 	"github.com/alonana/httshark/tshark/correlator"
-	"github.com/alonana/httshark/tshark/exporter"
 	"github.com/alonana/httshark/tshark/line"
 	"os"
 	"os/signal"
@@ -24,7 +24,7 @@ func (p *EntryPoint) Run() {
 	core.ParseFlags()
 	core.Info("Starting")
 
-	exporterProcessor := exporter.CreateProcessor()
+	exporterProcessor := exporters.CreateProcessor()
 	exporterProcessor.Start()
 
 	if core.Config.Capture == "httpdump" {

@@ -1,4 +1,4 @@
-package exporter
+package exporters
 
 import (
 	"encoding/json"
@@ -14,8 +14,13 @@ func HarToFile(harData *har.Har) error {
 	if err != nil {
 		return fmt.Errorf("marshal har failed: %v", err)
 	}
+	hostPrefix := ""
+	if core.Config.SplitByHost {
+		hostPrefix = harData.Log.Entries[0].GetHost() + "_"
+	}
 
-	path := fmt.Sprintf("%v/%v.har", core.Config.OutputFolder, time.Now().Format("2006-01-02T15:04:05"))
+	formattedTime := time.Now().Format("2006-01-02T15:04:05")
+	path := fmt.Sprintf("%v/%v%v.har", core.Config.OutputFolder, hostPrefix, formattedTime)
 
 	err = ioutil.WriteFile(path, data, 0666)
 	if err != nil {

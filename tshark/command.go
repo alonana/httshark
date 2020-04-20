@@ -25,6 +25,7 @@ func (c *CommandLine) Start() error {
 	args += " -e http.request"
 	args += " -e http.request.method"
 	args += " -e http.request.version"
+	args += " -e http.request.full_uri"
 	args += " -e http.request.uri"
 	args += " -e http.request.line"
 	args += " -e http.file_data"

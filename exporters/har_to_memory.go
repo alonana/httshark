@@ -1,4 +1,4 @@
-package exporter
+package exporters
 
 import (
 	"github.com/alonana/httshark/har"

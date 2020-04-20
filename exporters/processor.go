@@ -1,4 +1,4 @@
-package exporter
+package exporters
 
 import (
 	"github.com/alonana/httshark/core"
@@ -103,7 +103,41 @@ func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 		entries[i] = p.convert(transactions[i])
 	}
 
-	harData := har.Har{
+	harFiles := p.getHarFiles(entries)
+	for i := 0; i < len(harFiles); i++ {
+		harData := harFiles[i]
+		err := p.Processor(&harData)
+		if err != nil {
+			core.Fatal("marshal har failed: %v", err)
+		}
+	}
+}
+
+func (p *Processor) getHarFiles(entries []har.Entry) []har.Har {
+	if !core.Config.SplitByHost {
+		harData := p.getHarFile(entries)
+		return []har.Har{*harData}
+	}
+
+	hosts := make(map[string][]har.Entry)
+	for i := 0; i < len(entries); i++ {
+		entry := entries[i]
+		host := entry.GetHost()
+		hostEntries := hosts[host]
+		hostEntries = append(hostEntries, entry)
+		hosts[host] = hostEntries
+	}
+
+	var files []har.Har
+	for _, hostEntries := range hosts {
+		harData := p.getHarFile(hostEntries)
+		files = append(files, *harData)
+	}
+	return files
+}
+
+func (p *Processor) getHarFile(entries []har.Entry) *har.Har {
+	return &har.Har{
 		Log: har.Log{
 			Version: "1.2",
 			Creator: har.Creator{
@@ -112,11 +146,6 @@ func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 			},
 			Entries: entries,
 		},
-	}
-
-	err := p.Processor(&harData)
-	if err != nil {
-		core.Fatal("marshal har failed: %v", err)
 	}
 }
 

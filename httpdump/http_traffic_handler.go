@@ -138,6 +138,7 @@ func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
 		return
 	}
 
+	fullUrl := "http://" + req.Host + req.URL.Path
 	transaction := core.HttpTransaction{
 		Request: core.HttpRequest{
 			HttpEntry: core.HttpEntry{
@@ -148,7 +149,7 @@ func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
 				Headers: h.convertHeaders(req.Header),
 			},
 			Method: req.Method,
-			Path:   req.URL.Path,
+			Path:   fullUrl,
 			Query:  req.URL.RawQuery,
 		},
 	}

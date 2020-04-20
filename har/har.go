@@ -1,5 +1,7 @@
 package har
 
+import "strings"
+
 type Cookie struct {
 }
 
@@ -69,4 +71,13 @@ type Log struct {
 
 type Har struct {
 	Log Log `json:"log"`
+}
+
+func (e *Entry) GetHost() string {
+	url := e.Request.Url
+	position := strings.Index(url, "://")
+	url = url[position+3:]
+	position = strings.Index(url, "/")
+	url = url[:position]
+	return url
 }
