@@ -1,6 +1,9 @@
 package har
 
-import "strings"
+import (
+	"github.com/alonana/httshark/core"
+	"strings"
+)
 
 type Cookie struct {
 }
@@ -76,8 +79,16 @@ type Har struct {
 func (e *Entry) GetHost() string {
 	url := e.Request.Url
 	position := strings.Index(url, "://")
+	if position == -1 {
+		core.Warn("unable to extract host from %v", url)
+		return "UNKNOWN"
+	}
 	url = url[position+3:]
 	position = strings.Index(url, "/")
+	if position == -1 {
+		core.Warn("unable to extract host from %v", url)
+		return "UNKNOWN"
+	}
 	url = url[:position]
 	return url
 }

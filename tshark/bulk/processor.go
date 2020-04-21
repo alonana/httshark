@@ -71,6 +71,11 @@ func (p *Processor) convert(tsharkJson *types.Stdout) {
 		return
 	}
 
+	if len(layers.TcpStream) == 0 {
+		core.Warn("missing tcp stream in %v", tsharkJson, err)
+		return
+	}
+
 	stream, err := strconv.Atoi(layers.TcpStream[0])
 	if err != nil {
 		core.Warn("parse tcp stream in %v failed: %v", tsharkJson, err)
@@ -89,37 +94,52 @@ func (p *Processor) convert(tsharkJson *types.Stdout) {
 	}
 
 	if len(layers.IsRequest) > 0 {
-		httpEntry.Version = layers.RequestVersion[0]
+		if len(layers.RequestVersion) > 0 {
+			httpEntry.Version = layers.RequestVersion[0]
+		}
 		httpEntry.Headers = layers.RequestLine
 
 		path := "/"
 		query := ""
 		if len(layers.RequestUri) > 0 {
-			if strings.Contains(layers.RequestUri[0], "?") {
-				sections := strings.Split(layers.RequestUri[0], "?")
+			requestUri := layers.RequestUri[0]
+			if strings.Contains(requestUri, "?") {
+				sections := strings.Split(requestUri, "?")
 				path = sections[0]
 				query = sections[1]
 			} else {
-				path = layers.RequestUri[0]
+				path = requestUri
 			}
+		}
+
+		method := ""
+		if len(layers.RequestMethod) > 0 {
+			method = layers.RequestMethod[0]
 		}
 
 		request := core.HttpRequest{
 			HttpEntry: httpEntry,
-			Method:    layers.RequestMethod[0],
+			Method:    method,
 			Path:      path,
 			Query:     query,
 		}
 
 		p.HttpProcessor(request)
 	} else {
+		if len(layers.ResponseCode) == 0 {
+			core.Warn("missing response code in %v", tsharkJson, err)
+			return
+		}
+
 		code, err := strconv.Atoi(layers.ResponseCode[0])
 		if err != nil {
 			core.Warn("parse response code in %v failed: %v", tsharkJson, err)
 			return
 		}
 
-		httpEntry.Version = layers.ResponseVersion[0]
+		if len(layers.ResponseVersion) > 0 {
+			httpEntry.Version = layers.ResponseVersion[0]
+		}
 		httpEntry.Headers = layers.ResponseLine
 		response := core.HttpResponse{
 			HttpEntry: httpEntry,
