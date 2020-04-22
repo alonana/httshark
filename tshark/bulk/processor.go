@@ -45,7 +45,7 @@ func (p *Processor) parseJson() {
 			var entry types.Stdout
 			err := json.Unmarshal([]byte(data), &entry)
 			if err == nil {
-				p.convert(&entry)
+				p.convert(&entry, data)
 			} else {
 				core.Warn("parse tshark stdout JSON %v failed:%v", data, err)
 			}
@@ -61,24 +61,24 @@ func (p *Processor) parseJson() {
 	p.waitGroup.Done()
 }
 
-func (p *Processor) convert(tsharkJson *types.Stdout) {
+func (p *Processor) convert(tsharkJson *types.Stdout, originalEntry string) {
 	core.V5("json entry is %+v", tsharkJson)
 	layers := tsharkJson.Source.Layers
 
 	entryTime, err := p.parseTime(&layers)
 	if err != nil {
-		core.Warn("parse time in %v failed: %v", tsharkJson, err)
+		core.Warn("parse time in %+v failed: %v", tsharkJson, err)
 		return
 	}
 
 	if len(layers.TcpStream) == 0 {
-		core.Warn("missing tcp stream in %v", tsharkJson, err)
+		core.Warn("missing tcp stream in %+v", tsharkJson)
 		return
 	}
 
 	stream, err := strconv.Atoi(layers.TcpStream[0])
 	if err != nil {
-		core.Warn("parse tcp stream in %v failed: %v", tsharkJson, err)
+		core.Warn("parse tcp stream in %+v failed: %v", tsharkJson, err)
 		return
 	}
 
@@ -125,15 +125,15 @@ func (p *Processor) convert(tsharkJson *types.Stdout) {
 		}
 
 		p.HttpProcessor(request)
-	} else {
+	} else if len(layers.IsResponse) > 0 {
 		if len(layers.ResponseCode) == 0 {
-			core.Warn("missing response code in %v", tsharkJson, err)
+			core.Warn("missing response code in %+v", tsharkJson)
 			return
 		}
 
 		code, err := strconv.Atoi(layers.ResponseCode[0])
 		if err != nil {
-			core.Warn("parse response code in %v failed: %v", tsharkJson, err)
+			core.Warn("parse response code in %+v failed: %v", tsharkJson, err)
 			return
 		}
 
@@ -147,8 +147,9 @@ func (p *Processor) convert(tsharkJson *types.Stdout) {
 		}
 
 		p.HttpProcessor(response)
+	} else {
+		core.V5("ignoring not request/response: %v", originalEntry)
 	}
-
 }
 
 func (p *Processor) parseTime(layers *types.Layers) (*time.Time, error) {

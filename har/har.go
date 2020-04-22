@@ -86,8 +86,7 @@ func (e *Entry) GetHost() string {
 	url = url[position+3:]
 	position = strings.Index(url, "/")
 	if position == -1 {
-		core.Warn("unable to extract host from %v", url)
-		return "UNKNOWN"
+		return url
 	}
 	url = url[:position]
 	return url
