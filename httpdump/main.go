@@ -50,6 +50,7 @@ func getHostFilter(host core.Host) string {
 func openSingleDevice(device string) (localPackets chan gopacket.Packet, err error) {
 	defer func() {
 		if msg := recover(); msg != nil {
+			core.Error("open device recover")
 			switch x := msg.(type) {
 			case string:
 				err = errors.New(x)
@@ -95,13 +96,15 @@ func RunHttpDump(p TransactionProcessor) {
 	assembler.filterPort = 0
 	var ticker = time.Tick(time.Second * 10)
 
-outer:
 	for {
+		core.V2("waiting on http dump channels")
 		select {
 		case packet := <-packets:
+			core.V2("got packet")
 			// A nil packet indicates the end of a pcap file.
 			if packet == nil {
-				break outer
+				core.Warn("END of PCAP sampling??")
+				continue
 			}
 
 			// only assembly tcp/ip packets
@@ -114,11 +117,8 @@ outer:
 			assembler.assemble(packet.NetworkLayer().NetworkFlow(), tcp, packet.Metadata().Timestamp)
 
 		case <-ticker:
-			// flush connections that haven't been activity in the idle time
+			core.V2("flush older")
 			assembler.flushOlderThan(time.Now().Add(core.Config.ResponseTimeout))
 		}
 	}
-
-	assembler.finishAll()
-	waitGroup.Wait()
 }
