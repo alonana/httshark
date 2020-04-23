@@ -65,8 +65,8 @@ type HTTPTrafficHandler struct {
 // read http request/response stream, and do output
 func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 	defer waitGroup.Done()
-	defer connection.upStream.Close()
-	defer connection.downStream.Close()
+	defer func() { _ = connection.upStream.Close() }()
+	defer func() { _ = connection.downStream.Close() }()
 	// filter by args setting
 
 	requestReader := bufio.NewReader(connection.upStream)
@@ -81,7 +81,7 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 
 		if err != nil {
 			if err != io.EOF {
-				logger.Warn("Error parsing HTTP requests:", err)
+				core.Warn("Parsing HTTP request failed: %v", limitedError(err))
 			}
 			break
 		}
@@ -92,11 +92,8 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 		resp, err := http.ReadResponse(responseReader, nil)
 
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				core.V5("Error parsing HTTP response: unexpected end, ", err, connection.clientID)
-				break
-			} else {
-				core.Warn("Error parsing HTTP response:", err, connection.clientID)
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
+				core.Warn("parsing HTTP response failed: %v", limitedError(err))
 			}
 			h.report(req, nil)
 			discardAll(req.Body)
@@ -112,17 +109,12 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 			if resp.StatusCode == 100 {
 				// read next response, the real response
 				resp, err := http.ReadResponse(responseReader, nil)
-				if err == io.EOF {
-					logger.Warn("Error parsing HTTP requests: unexpected end, ", err)
-					break
-				}
-				if err == io.ErrUnexpectedEOF {
-					logger.Warn("Error parsing HTTP requests: unexpected end, ", err)
-					// here return directly too, to avoid error when long polling connection is used
-					break
-				}
 				if err != nil {
-					logger.Warn("Error parsing HTTP response:", err, connection.clientID)
+					if err != io.EOF && err != io.ErrUnexpectedEOF {
+						core.Warn("parsing HTTP continue response failed: %v", limitedError(err))
+					}
+					h.report(req, nil)
+					discardAll(req.Body)
 					break
 				}
 				h.report(req, resp)
@@ -134,7 +126,7 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		core.Warn("read request body failed: %v", body)
+		core.Warn("read request body failed: %v", limitedError(err))
 		return
 	}
 
@@ -157,8 +149,8 @@ func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
 	if res != nil {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			core.Warn("read response body failed: %v", body)
-			return
+			core.Warn("read response body failed: %v", limitedError(err))
+			body = []byte("UNKNOWN")
 		}
 		transaction.Response = &core.HttpResponse{
 			HttpEntry: core.HttpEntry{
@@ -211,4 +203,12 @@ func (h *HTTPTrafficHandler) tryDecompress(header http.Header, reader io.ReadClo
 
 func discardAll(r io.Reader) (dicarded int) {
 	return tcpreader.DiscardBytesToEOF(r)
+}
+
+func limitedError(err error) string {
+	s := err.Error()
+	if len(s) > 50 {
+		return s[:50]
+	}
+	return s
 }

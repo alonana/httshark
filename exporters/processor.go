@@ -13,7 +13,11 @@ type HarProcessor func(*har.Har) error
 
 func CreateProcessor() Processor {
 	var harProcessor HarProcessor
-	if core.Config.HarProcessor == "file" {
+	if core.Config.HarProcessor == "stats" {
+		s := Stats{}
+		go s.init()
+		harProcessor = s.HarStatistics
+	} else if core.Config.HarProcessor == "file" {
 		harProcessor = HarToFile
 	} else {
 		harProcessor = HarToMemory
@@ -29,6 +33,7 @@ type Processor struct {
 	stopChannel  chan bool
 	stopped      bool
 	Processor    HarProcessor
+	count        uint64
 }
 
 func (p *Processor) Start() {
@@ -111,6 +116,9 @@ func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 			core.Fatal("marshal har failed: %v", err)
 		}
 	}
+
+	p.count += uint64(len(transactions))
+	core.Info("%v total transactions dumped so far", p.count)
 }
 
 func (p *Processor) getHarFiles(entries []har.Entry) []har.Har {

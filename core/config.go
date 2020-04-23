@@ -18,6 +18,7 @@ type Configuration = struct {
 	OutputFolder          string
 	ResponseTimeout       time.Duration
 	ResponseCheckInterval time.Duration
+	StatsInterval         time.Duration
 	ExportInterval        time.Duration
 }
 
@@ -31,11 +32,12 @@ func ParseFlags() {
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
 	flag.StringVar(&Config.DropContentTypes, "drop-content-type", "image,audio,video", "comma separated list of content type whose body should be removed (case insensitive, using include for match)")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")
-	flag.StringVar(&Config.HarProcessor, "har-processer", "file", "processor of the har file. one of file,memory")
+	flag.StringVar(&Config.HarProcessor, "har-processor", "file", "processor of the har file. one of file,memory,stats")
 	flag.StringVar(&Config.Capture, "capture", "tshark", "capture engine to use, one of tshark,httpdump")
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", 5*time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
+	flag.DurationVar(&Config.StatsInterval, "stats-interval", 10*time.Second, "print stats exporter interval")
 
 	flag.Parse()
 	marshal, err := json.Marshal(Config)
@@ -49,7 +51,7 @@ func ParseFlags() {
 	if Config.Device == "" {
 		Fatal("device argument must be supplied")
 	}
-	if Config.HarProcessor != "file" && Config.HarProcessor != "memory" {
+	if Config.HarProcessor != "file" && Config.HarProcessor != "memory" && Config.HarProcessor != "stats" {
 		Fatal("invalid har processor specified")
 	}
 	if Config.Capture != "tshark" && Config.Capture != "httpdump" {

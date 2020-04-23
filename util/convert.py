@@ -1,7 +1,7 @@
 import json
 
 ports = {}
-with open('input/tunnels.json') as json_file:
+with open('../input/tunnels.json') as json_file:
     data = json.load(json_file)
     for site in data:
         for dc in data[site]:

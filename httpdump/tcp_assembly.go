@@ -2,6 +2,7 @@ package httpdump
 
 import (
 	"bytes"
+	"github.com/alonana/httshark/core"
 	"io"
 	"strconv"
 	"sync"
@@ -31,6 +32,7 @@ func newTCPAssembler(connectionHandler ConnectionHandler) *TCPAssembler {
 }
 
 func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, timestamp time.Time) {
+	core.V5("received packet")
 	src := Endpoint{ip: flow.Src().String(), port: uint16(tcp.SrcPort)}
 	dst := Endpoint{ip: flow.Dst().String(), port: uint16(tcp.DstPort)}
 	dropped := false
@@ -45,6 +47,7 @@ func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, tim
 		}
 	}
 	if dropped {
+		core.V5("packet dropped")
 		return
 	}
 
@@ -60,10 +63,11 @@ func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, tim
 	var createNewConn = tcp.SYN && !tcp.ACK || isHTTPRequestData(tcp.Payload)
 	connection := assembler.retrieveConnection(src, dst, key, createNewConn)
 	if connection == nil {
+		core.V5("connection %v not located", key)
 		return
 	}
 
-	connection.onReceive(src, dst, tcp, timestamp)
+	connection.onReceive(src, tcp, timestamp)
 
 	if connection.closed() {
 		assembler.deleteConnection(key)
@@ -81,6 +85,7 @@ func (assembler *TCPAssembler) retrieveConnection(src, dst Endpoint, key string,
 			connection = newTCPConnection(key)
 			assembler.connectionDict[key] = connection
 			assembler.connectionHandler.handle(src, dst, connection)
+			core.V5("creating connection %v", key)
 		}
 	}
 	return connection
@@ -169,7 +174,8 @@ func newTCPConnection(key string) *TCPConnection {
 }
 
 // when receive tcp packet
-func (connection *TCPConnection) onReceive(src, dst Endpoint, tcp *layers.TCP, timestamp time.Time) {
+func (connection *TCPConnection) onReceive(src Endpoint, tcp *layers.TCP, timestamp time.Time) {
+	core.V5("connection %v receive", connection.key)
 	connection.lastTimestamp = timestamp
 	payload := tcp.Payload
 	if !connection.isHTTP {

@@ -4,22 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alonana/httshark/core"
-	"strings"
-	"time"
-
-	"sync"
-
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"github.com/hsiafan/vlog"
+	"strings"
+	"sync"
+	"time"
 )
-
-var logger = vlog.CurrentPackageLogger()
-
-func init() {
-	logger.SetAppenders(vlog.NewConsole2Appender())
-}
 
 var waitGroup sync.WaitGroup
 
@@ -70,13 +61,15 @@ func openSingleDevice(device string) (localPackets chan gopacket.Packet, err err
 			localPackets = nil
 		}
 	}()
-	handle, err := pcap.OpenLive(device, 65536, false, pcap.BlockForever)
+
+	core.V1("open device %v", device)
+	handle, err := pcap.OpenLive(device, 65536, true, pcap.BlockForever)
 	if err != nil {
 		return
 	}
 
 	if err := setDeviceFilter(handle); err != nil {
-		logger.Warn("set capture filter failed, ", err)
+		core.Warn("set capture filter failed: %v", err)
 	}
 	localPackets = listenOneSource(handle)
 	return
