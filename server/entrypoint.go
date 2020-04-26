@@ -21,7 +21,7 @@ type EntryPoint struct {
 }
 
 func (p *EntryPoint) Run() {
-	core.ParseFlags()
+	core.Init()
 	core.Info("Starting")
 
 	exporterProcessor := exporters.CreateProcessor()

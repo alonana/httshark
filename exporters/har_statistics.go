@@ -6,6 +6,7 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/har"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -73,14 +74,18 @@ func (s *Stats) print() {
 	}
 	sort.Strings(hosts)
 
+	var messages []string
 	for i := 0; i < len(hosts); i++ {
 		host := hosts[i]
-		s.printSingle(host, s.hostsStats[host])
+		message := s.printSingle(host, s.hostsStats[host])
+		messages = append(messages, message)
 	}
-	s.printSingle("Summary", s.totalStats)
+	message := s.printSingle("Summary", s.totalStats)
+	messages = append(messages, message)
+	core.Info(strings.Join(messages, "\n"))
 }
 
-func (s *Stats) printSingle(name string, statsBase StatsBase) {
+func (s *Stats) printSingle(name string, statsBase StatsBase) string {
 	runSeconds := uint64(time.Now().Sub(s.startTime).Seconds())
 	printStats := PrintStats{
 		runSeconds:            runSeconds,
@@ -89,5 +94,5 @@ func (s *Stats) printSingle(name string, statsBase StatsBase) {
 		bytesPerSecond:        float32(statsBase.totalSize) / float32(runSeconds),
 		transactionsPerSecond: float32(statsBase.totalTransactions) / float32(runSeconds),
 	}
-	core.Info("%v statistics: %+v", name, printStats)
+	return fmt.Sprintf("%v statistics: %+v", name, printStats)
 }

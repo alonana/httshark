@@ -32,7 +32,7 @@ func newTCPAssembler(connectionHandler ConnectionHandler) *TCPAssembler {
 }
 
 func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, timestamp time.Time) {
-	core.V5("received packet")
+	core.V2("received packet")
 	src := Endpoint{ip: flow.Src().String(), port: uint16(tcp.SrcPort)}
 	dst := Endpoint{ip: flow.Dst().String(), port: uint16(tcp.DstPort)}
 	dropped := false
@@ -47,7 +47,7 @@ func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, tim
 		}
 	}
 	if dropped {
-		core.V5("packet dropped")
+		core.V2("packet dropped")
 		return
 	}
 
@@ -63,7 +63,7 @@ func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, tim
 	var createNewConn = tcp.SYN && !tcp.ACK || isHTTPRequestData(tcp.Payload)
 	connection := assembler.retrieveConnection(src, dst, key, createNewConn)
 	if connection == nil {
-		core.V5("connection %v not located", key)
+		core.V2("connection %v not located", key)
 		return
 	}
 
@@ -84,7 +84,7 @@ func (assembler *TCPAssembler) retrieveConnection(src, dst Endpoint, key string,
 		if init {
 			connection = newTCPConnection(key)
 			assembler.connectionDict[key] = connection
-			assembler.connectionHandler.handle(src, dst, connection)
+			assembler.connectionHandler.handle(key, src, dst, connection)
 			core.V5("creating connection %v", key)
 		}
 	}
@@ -129,7 +129,7 @@ func (assembler *TCPAssembler) finishAll() {
 
 // ConnectionHandler is interface for handle tcp connection
 type ConnectionHandler interface {
-	handle(src Endpoint, dst Endpoint, connection *TCPConnection)
+	handle(key string, src Endpoint, dst Endpoint, connection *TCPConnection)
 	finish()
 }
 
@@ -175,12 +175,13 @@ func newTCPConnection(key string) *TCPConnection {
 
 // when receive tcp packet
 func (connection *TCPConnection) onReceive(src Endpoint, tcp *layers.TCP, timestamp time.Time) {
-	core.V5("connection %v receive", connection.key)
+	core.V2("connection %v receive", connection.key)
 	connection.lastTimestamp = timestamp
 	payload := tcp.Payload
 	if !connection.isHTTP {
 		// skip no-http data
 		if !isHTTPRequestData(payload) {
+			core.V2("skip non HTTP data")
 			return
 		}
 		// receive first valid http data packet
@@ -189,15 +190,12 @@ func (connection *TCPConnection) onReceive(src Endpoint, tcp *layers.TCP, timest
 	}
 
 	var sendStream, confirmStream *NetworkStream
-	//var up bool
 	if connection.clientID.equals(src) {
 		sendStream = connection.upStream
 		confirmStream = connection.downStream
-		//up = true
 	} else {
 		sendStream = connection.downStream
 		confirmStream = connection.upStream
-		//up = false
 	}
 
 	sendStream.appendPacket(tcp)
@@ -252,6 +250,7 @@ func newNetworkStream() *NetworkStream {
 }
 
 func (stream *NetworkStream) appendPacket(tcp *layers.TCP) {
+	core.V2("stream append packet")
 	if stream.ignore {
 		return
 	}
@@ -259,6 +258,7 @@ func (stream *NetworkStream) appendPacket(tcp *layers.TCP) {
 }
 
 func (stream *NetworkStream) confirmPacket(ack uint32) {
+	core.V2("stream confirm packet")
 	if stream.ignore {
 		return
 	}
@@ -316,7 +316,6 @@ func (w *ReceiveWindow) destroy() {
 }
 
 func (w *ReceiveWindow) insert(packet *layers.TCP) {
-
 	if w.expectBegin != 0 && compareTCPSeq(w.expectBegin, packet.Seq+uint32(len(packet.Payload))) >= 0 {
 		// dropped
 		return
@@ -367,6 +366,7 @@ func (w *ReceiveWindow) insert(packet *layers.TCP) {
 // send confirmed packets to reader, when receive ack
 func (w *ReceiveWindow) confirm(ack uint32, c chan *layers.TCP) {
 	idx := 0
+	core.V2("confirm window size %v", w.size)
 	for ; idx < w.size; idx++ {
 		index := (idx + w.start) % len(w.buffer)
 		packet := w.buffer[index]
@@ -388,14 +388,18 @@ func (w *ReceiveWindow) confirm(ack uint32, c chan *layers.TCP) {
 				}
 				packet.Payload = packet.Payload[duplicatedSize:]
 			} else if diff < 0 {
+				core.V2("we lose packet here")
 				//TODO: we lose packet here
 			}
 		}
+		core.V2("add packet to channel start")
 		c <- packet
+		core.V2("add packet to channel done")
 		w.expectBegin = newExpect
 	}
 	w.start = (w.start + idx) % len(w.buffer)
 	w.size = w.size - idx
+	core.V2("confirm loop done")
 	if compareTCPSeq(w.lastAck, ack) < 0 || w.lastAck == 0 {
 		w.lastAck = ack
 	}

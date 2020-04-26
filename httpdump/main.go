@@ -70,7 +70,7 @@ func openSingleDevice(device string) (localPackets chan gopacket.Packet, err err
 	}
 
 	if err := setDeviceFilter(handle); err != nil {
-		core.Warn("set capture filter failed: %v", err)
+		core.Fatal("set capture filter failed: %v", err)
 	}
 	localPackets = listenOneSource(handle)
 	return

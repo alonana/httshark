@@ -39,12 +39,13 @@ func (ck *ConnectionKey) dstString() string {
 type HTTPConnectionHandler struct {
 }
 
-func (handler *HTTPConnectionHandler) handle(src Endpoint, dst Endpoint, connection *TCPConnection) {
+func (handler *HTTPConnectionHandler) handle(originalKey string, src Endpoint, dst Endpoint, connection *TCPConnection) {
 	ck := ConnectionKey{src, dst}
 	trafficHandler := &HTTPTrafficHandler{
-		key:       ck,
-		buffer:    new(bytes.Buffer),
-		startTime: connection.lastTimestamp,
+		originalKey: originalKey,
+		key:         ck,
+		buffer:      new(bytes.Buffer),
+		startTime:   connection.lastTimestamp,
 	}
 	waitGroup.Add(1)
 	go trafficHandler.handle(connection)
@@ -56,18 +57,19 @@ func (handler *HTTPConnectionHandler) finish() {
 
 // HTTPTrafficHandler parse a http connection traffic and send to printer
 type HTTPTrafficHandler struct {
-	startTime time.Time
-	endTime   time.Time
-	key       ConnectionKey
-	buffer    *bytes.Buffer
+	startTime   time.Time
+	endTime     time.Time
+	key         ConnectionKey
+	buffer      *bytes.Buffer
+	originalKey string
 }
 
 // read http request/response stream, and do output
 func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
+	core.V2("http traffic handle for key %v starting", h.originalKey)
 	defer waitGroup.Done()
 	defer func() { _ = connection.upStream.Close() }()
 	defer func() { _ = connection.downStream.Close() }()
-	// filter by args setting
 
 	requestReader := bufio.NewReader(connection.upStream)
 	defer discardAll(requestReader)
@@ -75,6 +77,8 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 	defer discardAll(responseReader)
 
 	for {
+		core.V2("http traffic handle for key %v lopping", h.originalKey)
+
 		h.buffer = new(bytes.Buffer)
 		req, err := http.ReadRequest(requestReader)
 		h.startTime = connection.lastTimestamp
@@ -83,12 +87,14 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 			if err != io.EOF {
 				core.Warn("Parsing HTTP request failed: %v", limitedError(err))
 			}
+			core.V2("http traffic handle for key %v break on error: %v", h.originalKey, limitedError(err))
 			break
 		}
 
 		// if is websocket request,  by header: Upgrade: websocket
 		expectContinue := req.Header.Get("Expect") == "100-continue"
 
+		core.V2("http traffic handle for key %v reading response", h.originalKey)
 		resp, err := http.ReadResponse(responseReader, nil)
 
 		if err != nil {
@@ -97,15 +103,18 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 			}
 			h.report(req, nil)
 			discardAll(req.Body)
+			core.V2("http traffic handle for key %v read response error", h.originalKey)
 			break
 		}
 
 		h.endTime = connection.lastTimestamp
 
+		core.V2("http traffic handle for key %v reporting", h.originalKey)
 		h.report(req, resp)
 		discardAll(req.Body)
 
 		if expectContinue {
+			core.V2("http traffic handle for key %v expect continue", h.originalKey)
 			if resp.StatusCode == 100 {
 				// read next response, the real response
 				resp, err := http.ReadResponse(responseReader, nil)
@@ -115,6 +124,7 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 					}
 					h.report(req, nil)
 					discardAll(req.Body)
+					core.V2("http traffic handle for key %v expect continue read response error", h.originalKey)
 					break
 				}
 				h.report(req, resp)
