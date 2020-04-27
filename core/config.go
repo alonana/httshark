@@ -7,23 +7,25 @@ import (
 )
 
 type Configuration = struct {
-	ChannelBuffer         int
-	Verbose               int
-	LogSnapshotLevel      int
-	LogSnapshotAmount     int
-	SplitByHost           bool
-	Hosts                 string
-	DropContentTypes      string
-	HarProcessor          string
-	Capture               string
-	Device                string
-	OutputFolder          string
-	LogSnapshotFile       string
-	LogSnapshotInterval   time.Duration
-	ResponseTimeout       time.Duration
-	ResponseCheckInterval time.Duration
-	StatsInterval         time.Duration
-	ExportInterval        time.Duration
+	NetworkStreamChannelSize    int
+	ChannelBuffer               int
+	Verbose                     int
+	LogSnapshotLevel            int
+	LogSnapshotAmount           int
+	SplitByHost                 bool
+	Hosts                       string
+	DropContentTypes            string
+	HarProcessor                string
+	Capture                     string
+	Device                      string
+	OutputFolder                string
+	LogSnapshotFile             string
+	LogSnapshotInterval         time.Duration
+	ResponseTimeout             time.Duration
+	ResponseCheckInterval       time.Duration
+	StatsInterval               time.Duration
+	ExportInterval              time.Duration
+	NetworkStreamChannelTimeout time.Duration
 }
 
 var Config Configuration
@@ -33,6 +35,7 @@ func Init() {
 	flag.IntVar(&Config.Verbose, "verbose", 0, "print verbose information. 0=nothing 5=all")
 	flag.IntVar(&Config.LogSnapshotLevel, "log-snapshot-level", 0, "print snapshot of logs from verbosity level. 0=nothing 5=all")
 	flag.IntVar(&Config.LogSnapshotAmount, "log-snapshot-amount", 0, "print snapshot of logs messages count")
+	flag.IntVar(&Config.NetworkStreamChannelSize, "network-stream-channel-size", 1024, "network stream channel size")
 	flag.BoolVar(&Config.SplitByHost, "split-by-host", true, "split output files by the request host")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "hal files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
@@ -46,6 +49,7 @@ func Init() {
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
 	flag.DurationVar(&Config.StatsInterval, "stats-interval", 10*time.Second, "print stats exporter interval")
 	flag.DurationVar(&Config.LogSnapshotInterval, "log-snapshot-interval", 0, "print log snapshot interval")
+	flag.DurationVar(&Config.NetworkStreamChannelTimeout, "network-stream-channel-timeout", 5*time.Second, "network stream go routine accept new packet timeout")
 
 	flag.Parse()
 	marshal, err := json.Marshal(Config)

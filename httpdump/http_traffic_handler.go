@@ -47,7 +47,6 @@ func (handler *HTTPConnectionHandler) handle(originalKey string, src Endpoint, d
 		buffer:      new(bytes.Buffer),
 		startTime:   connection.lastTimestamp,
 	}
-	waitGroup.Add(1)
 	go trafficHandler.handle(connection)
 }
 
@@ -67,7 +66,6 @@ type HTTPTrafficHandler struct {
 // read http request/response stream, and do output
 func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 	core.V2("http traffic handle for key %v starting", h.originalKey)
-	defer waitGroup.Done()
 	defer func() { _ = connection.upStream.Close() }()
 	defer func() { _ = connection.downStream.Close() }()
 

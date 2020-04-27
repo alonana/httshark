@@ -21,10 +21,11 @@ func logWrite(level string, format string, v ...interface{}) {
 func logSnapshotAppend(format string, v ...interface{}) {
 	formattedTimestamp := time.Now().UTC().Format(dateFormat)
 	updatedFormat := fmt.Sprintf("%v %v", formattedTimestamp, format)
+	message := fmt.Sprintf(updatedFormat, v...)
 
 	mutex.Lock()
-	mutex.Unlock()
-	message := fmt.Sprintf(updatedFormat, v...)
+	defer mutex.Unlock()
+
 	snapshot = append(snapshot, message)
 	if len(snapshot) > Config.LogSnapshotAmount {
 		snapshot = snapshot[len(snapshot)-Config.LogSnapshotAmount:]

@@ -8,11 +8,8 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"strings"
-	"sync"
 	"time"
 )
-
-var waitGroup sync.WaitGroup
 
 func listenOneSource(handle *pcap.Handle) chan gopacket.Packet {
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -88,12 +85,7 @@ func RunHttpDump(p TransactionProcessor) {
 		core.Fatal("listen on device %v failed, error: %w", core.Config.Device, err)
 	}
 
-	var handler = &HTTPConnectionHandler{}
-	var assembler = newTCPAssembler(handler)
-	//assembler.filterIP = core.Config.Hosts
-	//assembler.filterPort = uint16(core.Config.Port)
-	assembler.filterIP = ""
-	assembler.filterPort = 0
+	var assembler = newTCPAssembler()
 	var ticker = time.Tick(time.Second * 10)
 
 	for {
