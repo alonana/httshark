@@ -17,15 +17,13 @@ const tcpSeqWindow = 0x0000FFFF
 
 // TCPAssembler do tcp package assemble
 type TCPAssembler struct {
-	connectionDict    map[string]*TCPConnection
-	lock              sync.Mutex
-	connectionHandler HTTPConnectionHandler
+	connectionDict map[string]*TCPConnection
+	lock           sync.Mutex
 }
 
 func newTCPAssembler() *TCPAssembler {
 	return &TCPAssembler{
-		connectionDict:    map[string]*TCPConnection{},
-		connectionHandler: HTTPConnectionHandler{},
+		connectionDict: map[string]*TCPConnection{},
 	}
 }
 
@@ -53,6 +51,7 @@ func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, tim
 	connection.onReceive(src, tcp, timestamp)
 
 	if connection.closed() {
+		core.V2("connection %v closing", key)
 		assembler.deleteConnection(key)
 		connection.finish()
 	}
@@ -67,8 +66,8 @@ func (assembler *TCPAssembler) retrieveConnection(src, dst Endpoint, key string,
 		if init {
 			connection = newTCPConnection(key)
 			assembler.connectionDict[key] = connection
-			assembler.connectionHandler.handle(key, src, dst, connection)
-			core.V5("creating connection %v", key)
+			newHttpTrafficHandler(key, src, dst, connection)
+			core.V2("creating connection %v", key)
 		}
 	}
 	return connection

@@ -3,43 +3,16 @@ package httpdump
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
-	"compress/zlib"
 	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 )
 
-// ConnectionKey contains src and dst endpoint identify a connection
-type ConnectionKey struct {
-	src Endpoint
-	dst Endpoint
-}
-
-func (ck *ConnectionKey) reverse() ConnectionKey {
-	return ConnectionKey{ck.dst, ck.src}
-}
-
-// return the src ip and port
-func (ck *ConnectionKey) srcString() string {
-	return ck.src.String()
-}
-
-// return the dst ip and port
-func (ck *ConnectionKey) dstString() string {
-	return ck.dst.String()
-}
-
-// HTTPConnectionHandler impl ConnectionHandler
-type HTTPConnectionHandler struct {
-}
-
-func (handler *HTTPConnectionHandler) handle(originalKey string, src Endpoint, dst Endpoint, connection *TCPConnection) {
+func newHttpTrafficHandler(originalKey string, src Endpoint, dst Endpoint, connection *TCPConnection) {
 	ck := ConnectionKey{src, dst}
 	trafficHandler := &HTTPTrafficHandler{
 		originalKey: originalKey,
@@ -50,11 +23,6 @@ func (handler *HTTPConnectionHandler) handle(originalKey string, src Endpoint, d
 	go trafficHandler.handle(connection)
 }
 
-func (handler *HTTPConnectionHandler) finish() {
-	//handler.printer.finish()
-}
-
-// HTTPTrafficHandler parse a http connection traffic and send to printer
 type HTTPTrafficHandler struct {
 	startTime   time.Time
 	endTime     time.Time
@@ -92,8 +60,9 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 		// if is websocket request,  by header: Upgrade: websocket
 		expectContinue := req.Header.Get("Expect") == "100-continue"
 
-		core.V2("http traffic handle for key %v reading response", h.originalKey)
+		core.V2("http traffic handle for key %v reading response starting", h.originalKey)
 		resp, err := http.ReadResponse(responseReader, nil)
+		core.V2("http traffic handle for key %v reading response done", h.originalKey)
 
 		if err != nil {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -185,31 +154,7 @@ func (h *HTTPTrafficHandler) convertHeaders(httpHeaders http.Header) []string {
 	return headers
 }
 
-func (h *HTTPTrafficHandler) tryDecompress(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
-	contentEncoding := header.Get("Content-Encoding")
-	var nr io.ReadCloser
-	var err error
-	if contentEncoding == "" {
-		// do nothing
-		return reader, false
-	} else if strings.Contains(contentEncoding, "gzip") {
-		nr, err = gzip.NewReader(reader)
-		if err != nil {
-			return reader, false
-		}
-		return nr, true
-	} else if strings.Contains(contentEncoding, "deflate") {
-		nr, err = zlib.NewReader(reader)
-		if err != nil {
-			return reader, false
-		}
-		return nr, true
-	} else {
-		return reader, false
-	}
-}
-
-func discardAll(r io.Reader) (dicarded int) {
+func discardAll(r io.Reader) int {
 	return tcpreader.DiscardBytesToEOF(r)
 }
 

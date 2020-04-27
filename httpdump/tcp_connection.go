@@ -19,10 +19,14 @@ type TCPConnection struct {
 // create tcp connection, by the first tcp packet. this packet should from client to server
 func newTCPConnection(key string) *TCPConnection {
 	connection := &TCPConnection{
-		upStream:   newNetworkStream(),
-		downStream: newNetworkStream(),
+		upStream:   newNetworkStream("up " + key),
+		downStream: newNetworkStream("down " + key),
 		key:        key,
 	}
+
+	connection.upStream.opposite = connection.downStream
+	connection.downStream.opposite = connection.upStream
+
 	return connection
 }
 
@@ -53,18 +57,8 @@ func (connection *TCPConnection) onReceive(src Endpoint, tcp *layers.TCP, timest
 
 	sendStream.appendPacket(tcp)
 
-	if tcp.SYN {
-		// do nothing
-	}
-
 	if tcp.ACK {
-		// confirm
-		err := confirmStream.confirmPacket(tcp.Ack)
-		if err != nil {
-			core.Warn("confirm packet failed: %v", err)
-			connection.forceClose()
-			return
-		}
+		confirmStream.confirmPacket(tcp.Ack)
 	}
 
 	// terminate connection

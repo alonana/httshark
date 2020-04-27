@@ -7,16 +7,20 @@ import (
 
 // ReceiveWindow simulate tcp receive window
 type ReceiveWindow struct {
-	size        int
-	start       int
-	buffer      []*layers.TCP
-	lastAck     uint32
-	expectBegin uint32
+	size           int
+	start          int
+	buffer         []*layers.TCP
+	lastAck        uint32
+	expectBegin    uint32
+	keyDescription string
 }
 
-func newReceiveWindow(initialSize int) *ReceiveWindow {
+func newReceiveWindow(initialSize int, keyDescription string) *ReceiveWindow {
 	buffer := make([]*layers.TCP, initialSize)
-	return &ReceiveWindow{buffer: buffer}
+	return &ReceiveWindow{
+		buffer:         buffer,
+		keyDescription: keyDescription,
+	}
 }
 
 func (w *ReceiveWindow) destroy() {
@@ -74,7 +78,7 @@ func (w *ReceiveWindow) insert(packet *layers.TCP) {
 }
 
 // send confirmed packets to reader, when receive ack
-func (w *ReceiveWindow) confirm(ack uint32, c chan *layers.TCP) error {
+func (w *ReceiveWindow) confirm(ack uint32, c chan *layers.TCP) {
 	idx := 0
 	core.V2("confirm window size %v", w.size)
 	for ; idx < w.size; idx++ {
@@ -101,10 +105,9 @@ func (w *ReceiveWindow) confirm(ack uint32, c chan *layers.TCP) error {
 				core.V2("we lose packet here")
 			}
 		}
-		err := w.safeAddToChannel(c, packet)
-		if err != nil {
-			return err
-		}
+		core.V2("key %v add packet to channel start", w.keyDescription)
+		c <- packet
+		core.V2("key %v add packet to channel done len %v", w.keyDescription, len(packet.Payload))
 		w.expectBegin = newExpect
 	}
 	w.start = (w.start + idx) % len(w.buffer)
@@ -113,14 +116,6 @@ func (w *ReceiveWindow) confirm(ack uint32, c chan *layers.TCP) error {
 	if compareTCPSeq(w.lastAck, ack) < 0 || w.lastAck == 0 {
 		w.lastAck = ack
 	}
-	return nil
-}
-
-func (w *ReceiveWindow) safeAddToChannel(c chan *layers.TCP, packet *layers.TCP) error {
-	core.V2("add packet to channel start")
-	c <- packet
-	core.V2("add packet to channel done")
-	return nil
 }
 
 func (w *ReceiveWindow) expand() {

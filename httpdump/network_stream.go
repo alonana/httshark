@@ -4,66 +4,84 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/google/gopacket/layers"
 	"io"
+	"time"
 )
 
 // NetworkStream tread one-direction tcp data as stream. impl reader closer
 type NetworkStream struct {
-	window *ReceiveWindow
-	c      chan *layers.TCP
-	remain []byte
-	ignore bool
-	closed bool
+	window         *ReceiveWindow
+	c              chan *layers.TCP
+	remain         []byte
+	ignore         bool
+	closed         bool
+	keyDescription string
+	opposite       *NetworkStream
 }
 
-func newNetworkStream() *NetworkStream {
+func newNetworkStream(keyDescription string) *NetworkStream {
 	return &NetworkStream{
-		window: newReceiveWindow(64),
-		c:      make(chan *layers.TCP, core.Config.NetworkStreamChannelSize),
+		window:         newReceiveWindow(64, keyDescription),
+		c:              make(chan *layers.TCP, core.Config.NetworkStreamChannelSize),
+		keyDescription: keyDescription,
 	}
 }
 
-func (stream *NetworkStream) appendPacket(tcp *layers.TCP) {
+func (s *NetworkStream) appendPacket(tcp *layers.TCP) {
 	core.V2("stream append packet")
-	if stream.ignore {
+	if s.ignore {
 		return
 	}
-	stream.window.insert(tcp)
+	s.window.insert(tcp)
 }
 
-func (stream *NetworkStream) confirmPacket(ack uint32) error {
+func (s *NetworkStream) confirmPacket(ack uint32) {
 	core.V2("stream confirm packet")
-	if stream.ignore {
-		return nil
+	if s.ignore {
+		return
 	}
-	return stream.window.confirm(ack, stream.c)
+	s.window.confirm(ack, s.c)
 }
 
-func (stream *NetworkStream) finish() {
-	close(stream.c)
+func (s *NetworkStream) finish() {
+	close(s.c)
 }
 
-func (stream *NetworkStream) Read(p []byte) (n int, err error) {
-	for len(stream.remain) == 0 {
-		packet, ok := <-stream.c
-		if !ok {
-			err = io.EOF
-			return
+func (s *NetworkStream) Read(p []byte) (n int, err error) {
+	core.V2("read from %v starting", s.keyDescription)
+	for len(s.remain) == 0 {
+		timeout := time.NewTimer(core.Config.NetworkStreamChannelTimeout)
+		select {
+		case packet, ok := <-s.c:
+			if !ok {
+				core.V2("read from %v EOF", s.keyDescription)
+				err = io.EOF
+				return
+			}
+			s.remain = packet.Payload
+		case <-timeout.C:
+			core.V2("key %v opposite length is %v", s.keyDescription, len(s.opposite.c))
+			if len(s.opposite.c) == core.Config.NetworkStreamChannelSize {
+				core.Warn("detected stuck stream on %v, simulating EOF", s.keyDescription)
+				err = io.EOF
+				return
+			}
+			break
 		}
-		stream.remain = packet.Payload
 	}
 
-	if len(stream.remain) > len(p) {
-		n = copy(p, stream.remain[:len(p)])
-		stream.remain = stream.remain[len(p):]
+	if len(s.remain) > len(p) {
+		n = copy(p, s.remain[:len(p)])
+		s.remain = s.remain[len(p):]
 	} else {
-		n = copy(p, stream.remain)
-		stream.remain = nil
+		n = copy(p, s.remain)
+		s.remain = nil
 	}
+	core.V2("read from %v returned %v bytes", s.keyDescription, n)
 	return
 }
 
 // Close the stream
-func (stream *NetworkStream) Close() error {
-	stream.ignore = true
+func (s *NetworkStream) Close() error {
+	s.ignore = true
 	return nil
 }
