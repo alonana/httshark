@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/har"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -21,14 +22,6 @@ type Stats struct {
 type StatsBase struct {
 	totalSize         uint64
 	totalTransactions uint64
-}
-
-type PrintStats struct {
-	runSeconds            uint64
-	totalSize             uint64
-	totalTransactions     uint64
-	bytesPerSecond        float32
-	transactionsPerSecond float32
 }
 
 func (s *Stats) init() {
@@ -75,24 +68,52 @@ func (s *Stats) print() {
 	sort.Strings(hosts)
 
 	var messages []string
+	messages = append(messages, "Site,RunSeconds,TotalBytes,TotalTransactions,BPS,TPS,AverageTransactionBytes")
+
+	message := s.printSingle("__Summary__", s.totalStats)
+	messages = append(messages, message)
+
 	for i := 0; i < len(hosts); i++ {
 		host := hosts[i]
 		message := s.printSingle(host, s.hostsStats[host])
 		messages = append(messages, message)
 	}
-	message := s.printSingle("Summary", s.totalStats)
-	messages = append(messages, message)
-	core.Info(strings.Join(messages, "\n"))
+	s.saveToFile(strings.Join(messages, "\n"))
 }
 
 func (s *Stats) printSingle(name string, statsBase StatsBase) string {
 	runSeconds := uint64(time.Now().Sub(s.startTime).Seconds())
-	printStats := PrintStats{
-		runSeconds:            runSeconds,
-		totalSize:             statsBase.totalSize,
-		totalTransactions:     statsBase.totalTransactions,
-		bytesPerSecond:        float32(statsBase.totalSize) / float32(runSeconds),
-		transactionsPerSecond: float32(statsBase.totalTransactions) / float32(runSeconds),
+	bps := float32(statsBase.totalSize) / float32(runSeconds)
+	tps := float32(statsBase.totalTransactions) / float32(runSeconds)
+	avgSize := float32(statsBase.totalSize) / float32(statsBase.totalTransactions)
+	return fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v",
+		name,
+		runSeconds,
+		statsBase.totalSize,
+		statsBase.totalTransactions,
+		bps,
+		tps,
+		avgSize,
+	)
+}
+
+func (s *Stats) saveToFile(data string) {
+	f, err := os.Create(core.Config.SitesStatisticsFile)
+	if err != nil {
+		core.Warn("create statistics file failed: %v", err)
+		return
 	}
-	return fmt.Sprintf("%v statistics: %+v", name, printStats)
+
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			core.Warn("close statistics file failed: %v", err)
+		}
+	}()
+
+	_, err = f.Write([]byte(data))
+	if err != nil {
+		core.Warn("write to statistics file failed: %v", err)
+		return
+	}
 }

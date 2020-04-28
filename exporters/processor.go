@@ -11,18 +11,24 @@ import (
 
 type HarProcessor func(*har.Har) error
 
-func CreateProcessor() Processor {
-	var harProcessor HarProcessor
-	if core.Config.HarProcessor == "stats" {
-		s := Stats{}
-		go s.init()
-		harProcessor = s.HarStatistics
-	} else if core.Config.HarProcessor == "file" {
-		harProcessor = HarToFile
-	} else {
-		harProcessor = HarToMemory
+func CreateProcessor() *Processor {
+	processor := Processor{}
+	processors := strings.Split(core.Config.HarProcessors, ",")
+	for i := 0; i < len(processors); i++ {
+		name := processors[i]
+		var harProcessor HarProcessor
+		if name == "sites-stats" {
+			s := Stats{}
+			go s.init()
+			harProcessor = s.HarStatistics
+		} else if name == "file" {
+			harProcessor = HarToFile
+		} else {
+			harProcessor = HarToMemory
+		}
+		processor.processors = append(processor.processors, harProcessor)
 	}
-	return Processor{Processor: harProcessor}
+	return &processor
 }
 
 type Processor struct {
@@ -32,8 +38,19 @@ type Processor struct {
 	waitGroup    sync.WaitGroup
 	stopChannel  chan bool
 	stopped      bool
-	Processor    HarProcessor
+	processors   []HarProcessor
 	count        uint64
+}
+
+func (p *Processor) process(harFile *har.Har) error {
+	for i := 0; i < len(p.processors); i++ {
+		harProcessor := p.processors[i]
+		err := harProcessor(harFile)
+		if err != nil {
+			core.Fatal("process har failed: %v", err)
+		}
+	}
+	return nil
 }
 
 func (p *Processor) Start() {
@@ -111,7 +128,7 @@ func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 	harFiles := p.getHarFiles(entries)
 	for i := 0; i < len(harFiles); i++ {
 		harData := harFiles[i]
-		err := p.Processor(&harData)
+		err := p.process(&harData)
 		if err != nil {
 			core.Fatal("marshal har failed: %v", err)
 		}
