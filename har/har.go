@@ -41,6 +41,7 @@ type Request struct {
 }
 
 type Response struct {
+	Exists      bool     `json:"exists"`
 	Status      int      `json:"status"`
 	StatusText  string   `json:"statusText"`
 	HttpVersion string   `json:"httpVersion"`

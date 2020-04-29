@@ -21,7 +21,9 @@ type Configuration = struct {
 	Device                      string
 	OutputFolder                string
 	LogSnapshotFile             string
-	SitesStatisticsFile         string
+	SitesStatsFile              string
+	RequestsSizesStatsFile      string
+	ResponsesSizesStatsFile     string
 	LogSnapshotInterval         time.Duration
 	ResponseTimeout             time.Duration
 	ResponseCheckInterval       time.Duration
@@ -43,10 +45,12 @@ func Init() {
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
 	flag.StringVar(&Config.DropContentTypes, "drop-content-type", "image,audio,video", "comma separated list of content type whose body should be removed (case insensitive, using include for match)")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")
-	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,memory,sites-stats")
+	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,sites-stats,transactions-sizes")
 	flag.StringVar(&Config.Capture, "capture", "tshark", "capture engine to use, one of tshark,httpdump")
 	flag.StringVar(&Config.LogSnapshotFile, "log-snapshot-file", "snapshot.log", "logs snapshot file name")
-	flag.StringVar(&Config.SitesStatisticsFile, "sites-stats-file", "statistics.csv", "sites statistics CSV file")
+	flag.StringVar(&Config.SitesStatsFile, "sites-stats-file", "statistics.csv", "sites statistics CSV file")
+	flag.StringVar(&Config.RequestsSizesStatsFile, "requests-sizes-stats-file", "requests_sizes.csv", "requests sizes statistics CSV file")
+	flag.StringVar(&Config.ResponsesSizesStatsFile, "responses-sizes-stats-file", "responses_sizes.csv", "responses sizes statistics CSV file")
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", 5*time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
@@ -69,7 +73,7 @@ func Init() {
 	processors := strings.Split(Config.HarProcessors, ",")
 	for i := 0; i < len(processors); i++ {
 		processor := processors[i]
-		if processor != "file" && processor != "memory" && processor != "sites-stats" {
+		if processor != "file" && processor != "sites-stats" && processor != "transactions-sizes" {
 			Fatal("invalid har processor specified")
 		}
 	}

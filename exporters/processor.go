@@ -18,13 +18,15 @@ func CreateProcessor() *Processor {
 		name := processors[i]
 		var harProcessor HarProcessor
 		if name == "sites-stats" {
-			s := Stats{}
+			s := SitesStats{}
 			go s.init()
-			harProcessor = s.HarStatistics
+			harProcessor = s.Process
 		} else if name == "file" {
 			harProcessor = HarToFile
 		} else {
-			harProcessor = HarToMemory
+			s := TransactionsSizes{}
+			go s.init()
+			harProcessor = s.Process
 		}
 		processor.processors = append(processor.processors, harProcessor)
 	}
@@ -180,6 +182,7 @@ func (p *Processor) convert(transaction core.HttpTransaction) har.Entry {
 
 	duration := 0
 	harResponse := har.Response{
+		Exists:      false,
 		Cookies:     make([]har.Cookie, 0),
 		HeadersSize: -1,
 		Content: har.Content{
@@ -189,9 +192,11 @@ func (p *Processor) convert(transaction core.HttpTransaction) har.Entry {
 		},
 	}
 	if response != nil {
+		harResponse.Exists = true
 		duration = int(response.Time.Sub(*request.Time).Milliseconds())
 		harResponse.Status = response.Code
 		harResponse.Headers = p.getHeaders(response.Headers)
+		harResponse.HeadersSize = p.getHeadersSize(response.Headers)
 		harResponse.HttpVersion = response.Version
 		harResponse.BodySize = len(response.Data)
 		harResponse.Content.Size = len(response.Data)
@@ -209,7 +214,7 @@ func (p *Processor) convert(transaction core.HttpTransaction) har.Entry {
 		Headers:     p.getHeaders(request.Headers),
 		QueryString: p.getQueryString(request.Query),
 		Cookies:     make([]har.Cookie, 0),
-		HeadersSize: -1,
+		HeadersSize: p.getHeadersSize(request.Headers),
 		BodySize:    len(request.Data),
 		Content: har.Content{
 			Size:     len(request.Data),
@@ -236,6 +241,14 @@ func (p *Processor) getHeaders(headers []string) []har.Pair {
 		harHeaders[i] = p.getHeader(headers[i])
 	}
 	return harHeaders
+}
+
+func (p *Processor) getHeadersSize(headers []string) int {
+	size := 0
+	for i := 0; i < len(headers); i++ {
+		size += len(headers[i])
+	}
+	return size
 }
 
 func (p *Processor) getHeader(header string) har.Pair {
