@@ -82,6 +82,7 @@ it is sent as a transaction without a response.
 Notice that the tshark creates by default temporary files on the /tmp folder.
 This means that its performance is somehow worse than the httpdump capture engine.
 This also means that you should manually remove the files on the /tmp folder. 
+See https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=2743
 
 ### httpdump capture engine
 
