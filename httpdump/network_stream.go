@@ -2,6 +2,7 @@ package httpdump
 
 import (
 	"github.com/alonana/httshark/core"
+	"github.com/alonana/httshark/core/aggregated"
 	"github.com/google/gopacket/layers"
 	"io"
 	"time"
@@ -61,7 +62,7 @@ func (s *NetworkStream) Read(p []byte) (n int, err error) {
 		case <-timeout.C:
 			core.V2("key %v opposite length is %v", s.keyDescription, len(s.opposite.c))
 			if len(s.opposite.c) == core.Config.NetworkStreamChannelSize {
-				core.Warn("detected stuck stream on %v, simulating EOF", s.keyDescription)
+				aggregated.Warn("detected stuck stream on, simulating EOF")
 				err = io.EOF
 				return
 			}

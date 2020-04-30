@@ -17,7 +17,11 @@ func CreateProcessor() *Processor {
 	for i := 0; i < len(processors); i++ {
 		name := processors[i]
 		var harProcessor HarProcessor
-		if name == "sites-stats" {
+		if name == "sampled-transactions" {
+			s := SampleTransactions{}
+			go s.init()
+			harProcessor = s.Process
+		} else if name == "sites-stats" {
 			s := SitesStats{}
 			go s.init()
 			harProcessor = s.Process

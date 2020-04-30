@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/alonana/httshark/core"
+	"github.com/alonana/httshark/core/aggregated"
 	"github.com/alonana/httshark/exporters"
 	"github.com/alonana/httshark/httpdump"
 	"github.com/alonana/httshark/tshark"
@@ -23,6 +24,7 @@ type EntryPoint struct {
 func (p *EntryPoint) Run() {
 	core.Init()
 	core.Info("Starting")
+	aggregated.InitLog()
 
 	exporterProcessor := exporters.CreateProcessor()
 	exporterProcessor.Start()

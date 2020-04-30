@@ -30,11 +30,23 @@ type SingleSiteStats struct {
 	totalTransactions       uint64
 	requestsStats           SizesStats
 	responsesStats          SizesStats
+	transactionsStats       SizesStats
 	requestsWithoutResponse int
 }
 
 func (s *SitesStats) init() {
-	s.buckets = []int{1024, 5 * 1024, 50 * 1024, 100 * 1024, 256 * 1024, 1024 * 1024, 5 * 1024 * 1024, 10 * 1024 * 1024, 10024 * 1024 * 1024}
+	s.buckets = []int{
+		1024,
+		5 * 1024,
+		50 * 1024,
+		100 * 1024,
+		256 * 1024,
+		1024 * 1024,
+		5 * 1024 * 1024,
+		10 * 1024 * 1024,
+		10024 * 1024 * 1024,
+	}
+
 	s.startTime = time.Now()
 	s.hostsStats = make(map[string]SingleSiteStats)
 	tick := time.NewTicker(core.Config.StatsInterval)
@@ -84,6 +96,7 @@ func (s *SitesStats) print() {
 	titles := "Site,RunSeconds,TotalHarBytes,TotalTransactions,BPS,TPS,AverageHarTransactionBytes,RequestsWithoutResponse"
 	titles += s.getSizesTitles("request")
 	titles += s.getSizesTitles("response")
+	titles += s.getSizesTitles("transaction")
 	messages = append(messages, titles)
 
 	message := s.printSingle("__Summary__", s.totalStats)
@@ -116,7 +129,7 @@ func (s *SitesStats) printSingle(name string, stats SingleSiteStats) string {
 	bps := float32(stats.totalSize) / float32(runSeconds)
 	tps := float32(stats.totalTransactions) / float32(runSeconds)
 	avgSize := float32(stats.totalSize) / float32(stats.totalTransactions)
-	return fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v",
+	return fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v",
 		name,
 		runSeconds,
 		stats.totalSize,
@@ -127,6 +140,7 @@ func (s *SitesStats) printSingle(name string, stats SingleSiteStats) string {
 		stats.requestsWithoutResponse,
 		s.printSizesStats(stats.requestsStats),
 		s.printSizesStats(stats.responsesStats),
+		s.printSizesStats(stats.transactionsStats),
 	)
 }
 
@@ -149,10 +163,14 @@ func (s *SitesStats) updateSizesStats(stats *SingleSiteStats, data *har.Har) {
 	for i := 0; i < len(entries); i++ {
 		entry := entries[i]
 
-		s.updateSizesStatsSingle(&stats.requestsStats, entry.Request.BodySize+entry.Request.HeadersSize)
+		requestSize := entry.Request.BodySize + entry.Request.HeadersSize
+		s.updateSizesStatsSingle(&stats.requestsStats, requestSize)
 		if entry.Response.Exists {
-			s.updateSizesStatsSingle(&stats.responsesStats, entry.Response.BodySize+entry.Response.HeadersSize)
+			responseSize := entry.Response.BodySize + entry.Response.HeadersSize
+			s.updateSizesStatsSingle(&stats.responsesStats, responseSize)
+			s.updateSizesStatsSingle(&stats.transactionsStats, requestSize+responseSize)
 		} else {
+			s.updateSizesStatsSingle(&stats.transactionsStats, requestSize)
 			stats.requestsWithoutResponse++
 		}
 	}
