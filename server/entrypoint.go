@@ -9,6 +9,8 @@ import (
 	"github.com/alonana/httshark/tshark/bulk"
 	"github.com/alonana/httshark/tshark/correlator"
 	"github.com/alonana/httshark/tshark/line"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,6 +27,10 @@ func (p *EntryPoint) Run() {
 	core.Init()
 	core.Info("Starting")
 	aggregated.InitLog()
+
+	go func() {
+		core.Warn("HTTP SERVER: %v", http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	exporterProcessor := exporters.CreateProcessor()
 	exporterProcessor.Start()

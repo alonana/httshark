@@ -44,6 +44,7 @@ func (s *NetworkStream) confirmPacket(ack uint32) {
 }
 
 func (s *NetworkStream) finish() {
+	core.V2("stream %v closing", s.keyDescription)
 	close(s.c)
 }
 

@@ -34,7 +34,7 @@ type HTTPTrafficHandler struct {
 
 // read http request/response stream, and do output
 func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
-	core.V2("http traffic handle for key %v starting", h.originalKey)
+	core.V2("%v http traffic - starting", h.originalKey)
 	defer func() { _ = connection.upStream.Close() }()
 	defer func() { _ = connection.downStream.Close() }()
 
@@ -44,26 +44,28 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 	defer discardAll(responseReader)
 
 	for {
-		core.V2("http traffic handle for key %v lopping", h.originalKey)
+		core.V2("%v http traffic - lopping", h.originalKey)
 
 		h.buffer = new(bytes.Buffer)
 		req, err := http.ReadRequest(requestReader)
 		h.startTime = connection.lastTimestamp
 
 		if err != nil {
-			if err != io.EOF {
+			if err == io.EOF {
+				core.V2("%v http traffic - break on EOF", h.originalKey)
+			} else {
+				core.V2("%v http traffic - break on error: %v", h.originalKey, limitedError(err))
 				aggregated.Warn("Parsing HTTP request failed: %v", limitedError(err))
 			}
-			core.V2("http traffic handle for key %v break on error: %v", h.originalKey, limitedError(err))
 			break
 		}
 
 		// if is websocket request,  by header: Upgrade: websocket
 		expectContinue := req.Header.Get("Expect") == "100-continue"
 
-		core.V2("http traffic handle for key %v reading response starting", h.originalKey)
+		core.V2("%v http traffic - reading response starting", h.originalKey)
 		resp, err := http.ReadResponse(responseReader, nil)
-		core.V2("http traffic handle for key %v reading response done", h.originalKey)
+		core.V2("%v http traffic - reading response done", h.originalKey)
 
 		if err != nil {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -71,18 +73,18 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 			}
 			h.report(req, nil)
 			discardAll(req.Body)
-			core.V2("http traffic handle for key %v read response error", h.originalKey)
+			core.V2("%v http traffic - read response error", h.originalKey)
 			break
 		}
 
 		h.endTime = connection.lastTimestamp
 
-		core.V2("http traffic handle for key %v reporting", h.originalKey)
+		core.V2("%v http traffic - reporting", h.originalKey)
 		h.report(req, resp)
 		discardAll(req.Body)
 
 		if expectContinue {
-			core.V2("http traffic handle for key %v expect continue", h.originalKey)
+			core.V2("%v http traffic - expect continue", h.originalKey)
 			if resp.StatusCode == 100 {
 				// read next response, the real response
 				resp, err := http.ReadResponse(responseReader, nil)
@@ -92,13 +94,15 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 					}
 					h.report(req, nil)
 					discardAll(req.Body)
-					core.V2("http traffic handle for key %v expect continue read response error", h.originalKey)
+					core.V2("%v http traffic - expect continue read response error", h.originalKey)
 					break
 				}
 				h.report(req, resp)
 			}
 		}
 	}
+
+	core.V2("%v http traffic - terminating", h.originalKey)
 }
 
 func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
@@ -156,7 +160,11 @@ func (h *HTTPTrafficHandler) convertHeaders(httpHeaders http.Header) []string {
 }
 
 func discardAll(r io.Reader) int {
-	return tcpreader.DiscardBytesToEOF(r)
+	discarded, err := tcpreader.DiscardBytesToFirstError(r)
+	if err != nil {
+		aggregated.Warn("discard bytes failed: %v", limitedError(err))
+	}
+	return discarded
 }
 
 func limitedError(err error) string {
