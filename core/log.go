@@ -123,3 +123,11 @@ func printSnapshot() {
 		}
 	}
 }
+
+func LimitedError(err error) string {
+	s := err.Error()
+	if len(s) > Config.LimitedErrorLength {
+		return s[:Config.LimitedErrorLength]
+	}
+	return s
+}

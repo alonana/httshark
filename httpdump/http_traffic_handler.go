@@ -54,8 +54,8 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 			if err == io.EOF {
 				core.V2("%v http traffic - break on EOF", h.originalKey)
 			} else {
-				core.V2("%v http traffic - break on error: %v", h.originalKey, limitedError(err))
-				aggregated.Warn("Parsing HTTP request failed: %v", limitedError(err))
+				core.V2("%v http traffic - break on error: %v", h.originalKey, core.LimitedError(err))
+				aggregated.Warn("Parsing HTTP request failed: %v", core.LimitedError(err))
 			}
 			break
 		}
@@ -69,7 +69,7 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 
 		if err != nil {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
-				aggregated.Warn("parsing HTTP response failed: %v", limitedError(err))
+				aggregated.Warn("parsing HTTP response failed: %v", core.LimitedError(err))
 			}
 			h.report(req, nil)
 			discardAll(req.Body)
@@ -90,7 +90,7 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 				resp, err := http.ReadResponse(responseReader, nil)
 				if err != nil {
 					if err != io.EOF && err != io.ErrUnexpectedEOF {
-						aggregated.Warn("parsing HTTP continue response failed: %v", limitedError(err))
+						aggregated.Warn("parsing HTTP continue response failed: %v", core.LimitedError(err))
 					}
 					h.report(req, nil)
 					discardAll(req.Body)
@@ -108,7 +108,7 @@ func (h *HTTPTrafficHandler) handle(connection *TCPConnection) {
 func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		aggregated.Warn("read request body failed: %v", limitedError(err))
+		aggregated.Warn("read request body failed: %v", core.LimitedError(err))
 		return
 	}
 
@@ -131,7 +131,7 @@ func (h *HTTPTrafficHandler) report(req *http.Request, res *http.Response) {
 	if res != nil {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			aggregated.Warn("read response body failed: %v", limitedError(err))
+			aggregated.Warn("read response body failed: %v", core.LimitedError(err))
 			body = []byte("UNKNOWN")
 		}
 		transaction.Response = &core.HttpResponse{
@@ -163,16 +163,8 @@ func discardAll(r io.Reader) int {
 	discarded, err := tcpreader.DiscardBytesToFirstError(r)
 	if err != nil {
 		if err != io.EOF {
-			aggregated.Warn("discard bytes failed: %v", limitedError(err))
+			aggregated.Warn("discard bytes failed: %v", core.LimitedError(err))
 		}
 	}
 	return discarded
-}
-
-func limitedError(err error) string {
-	s := err.Error()
-	if len(s) > core.Config.LimitedErrorLength {
-		return s[:core.Config.LimitedErrorLength]
-	}
-	return s
 }

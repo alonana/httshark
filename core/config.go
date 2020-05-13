@@ -39,7 +39,7 @@ type Configuration = struct {
 var Config Configuration
 
 func Init() {
-	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 20, "truncate long errors to this length")
+	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 15, "truncate long errors to this length")
 	flag.IntVar(&Config.SampledTransactionsRate, "sample-transactions-rate", 1, "how many transactions should be sampled in each stats interval")
 	flag.IntVar(&Config.ChannelBuffer, "channel-buffer", 1, "channel buffer size")
 	flag.IntVar(&Config.Verbose, "verbose", 0, "print verbose information. 0=nothing 5=all")
