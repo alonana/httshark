@@ -162,7 +162,9 @@ func (h *HTTPTrafficHandler) convertHeaders(httpHeaders http.Header) []string {
 func discardAll(r io.Reader) int {
 	discarded, err := tcpreader.DiscardBytesToFirstError(r)
 	if err != nil {
-		aggregated.Warn("discard bytes failed: %v", limitedError(err))
+		if err != io.EOF {
+			aggregated.Warn("discard bytes failed: %v", limitedError(err))
+		}
 	}
 	return discarded
 }
