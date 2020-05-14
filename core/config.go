@@ -58,7 +58,7 @@ func Init() {
 	flag.StringVar(&Config.ResponsesSizesStatsFile, "responses-sizes-stats-file", "responses_sizes.csv", "responses sizes statistics CSV file")
 	flag.StringVar(&Config.SampledTransactionsFolder, "sampled-transactions-folder", "sampled", "sampled transactions output folder")
 	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,sites-stats,transactions-sizes,sampled-transactions")
-	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", 5*time.Minute, "timeout for waiting for response")
+	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
 	flag.DurationVar(&Config.StatsInterval, "stats-interval", 10*time.Second, "print stats exporter interval")

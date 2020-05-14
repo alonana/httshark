@@ -50,6 +50,7 @@ func (s *NetworkStream) finish() {
 
 func (s *NetworkStream) Read(p []byte) (n int, err error) {
 	core.V2("read from %v starting", s.keyDescription)
+	lastActiveTime := time.Now()
 	for len(s.remain) == 0 {
 		timeout := time.NewTimer(core.Config.NetworkStreamChannelTimeout)
 		select {
@@ -60,10 +61,18 @@ func (s *NetworkStream) Read(p []byte) (n int, err error) {
 				return
 			}
 			s.remain = packet.Payload
+			lastActiveTime = time.Now()
 		case <-timeout.C:
 			core.V2("key %v opposite length is %v", s.keyDescription, len(s.opposite.c))
 			if len(s.opposite.c) == core.Config.NetworkStreamChannelSize {
 				aggregated.Warn("detected stuck stream on, simulating EOF")
+				err = io.EOF
+				return
+			}
+			nonActive := time.Now().Sub(lastActiveTime)
+			if nonActive > core.Config.ResponseTimeout {
+				core.V2("non active connection for %v", nonActive)
+				aggregated.Warn("simulating EOF on a non active connection")
 				err = io.EOF
 				return
 			}
