@@ -1,7 +1,9 @@
 package exporters
 
 import (
+	"fmt"
 	"github.com/alonana/httshark/core"
+	"github.com/alonana/httshark/core/aggregated"
 	"github.com/alonana/httshark/har"
 	"net/url"
 	"strings"
@@ -38,14 +40,15 @@ func CreateProcessor() *Processor {
 }
 
 type Processor struct {
-	input        chan core.HttpTransaction
-	transactions []core.HttpTransaction
-	mutex        sync.Mutex
-	waitGroup    sync.WaitGroup
-	stopChannel  chan bool
-	stopped      bool
-	processors   []HarProcessor
-	count        uint64
+	input               chan core.HttpTransaction
+	transactions        []core.HttpTransaction
+	mutex               sync.Mutex
+	waitGroup           sync.WaitGroup
+	stopChannel         chan bool
+	stopped             bool
+	processors          []HarProcessor
+	count               uint64
+	lastTransactionTime time.Time
 }
 
 func (p *Processor) process(harFile *har.Har) error {
@@ -75,7 +78,16 @@ func (p *Processor) Stop() {
 }
 
 func (p *Processor) Queue(transaction core.HttpTransaction) {
+	p.lastTransactionTime = time.Now()
 	p.input <- transaction
+}
+
+func (p *Processor) CheckHealth() error {
+	passed := time.Now().Sub(p.lastTransactionTime)
+	if passed > core.Config.HealthTransactionTimeout {
+		return fmt.Errorf("transaction was not received for %v", passed)
+	}
+	return nil
 }
 
 func (p *Processor) export() {
@@ -277,7 +289,8 @@ func (p *Processor) getQueryString(query string) []har.Pair {
 	queryString := make([]har.Pair, 0)
 	values, err := url.ParseQuery(query)
 	if err != nil {
-		core.Warn("parse query string %v failed: %v", query, err)
+		core.V5("parse query string %s failed: %v", query, err)
+		aggregated.Warn("parse query string failed: %v", core.LimitedError(err))
 		return queryString
 	}
 

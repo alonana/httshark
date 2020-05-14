@@ -34,12 +34,15 @@ type Configuration = struct {
 	AggregatedLogInterval       time.Duration
 	ExportInterval              time.Duration
 	NetworkStreamChannelTimeout time.Duration
+	FullChannelCheckInterval    time.Duration
+	FullChannelTimeout          time.Duration
+	HealthTransactionTimeout    time.Duration
 }
 
 var Config Configuration
 
 func Init() {
-	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 20, "truncate long errors to this length")
+	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 15, "truncate long errors to this length")
 	flag.IntVar(&Config.SampledTransactionsRate, "sample-transactions-rate", 1, "how many transactions should be sampled in each stats interval")
 	flag.IntVar(&Config.ChannelBuffer, "channel-buffer", 1, "channel buffer size")
 	flag.IntVar(&Config.Verbose, "verbose", 0, "print verbose information. 0=nothing 5=all")
@@ -58,13 +61,16 @@ func Init() {
 	flag.StringVar(&Config.ResponsesSizesStatsFile, "responses-sizes-stats-file", "responses_sizes.csv", "responses sizes statistics CSV file")
 	flag.StringVar(&Config.SampledTransactionsFolder, "sampled-transactions-folder", "sampled", "sampled transactions output folder")
 	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,sites-stats,transactions-sizes,sampled-transactions")
-	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", 5*time.Minute, "timeout for waiting for response")
+	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
 	flag.DurationVar(&Config.StatsInterval, "stats-interval", 10*time.Second, "print stats exporter interval")
 	flag.DurationVar(&Config.LogSnapshotInterval, "log-snapshot-interval", 0, "print log snapshot interval")
 	flag.DurationVar(&Config.NetworkStreamChannelTimeout, "network-stream-channel-timeout", 5*time.Second, "network stream go routine accept new packet timeout")
 	flag.DurationVar(&Config.AggregatedLogInterval, "aggregated-log-interval", time.Minute, "print aggregated log messages interval")
+	flag.DurationVar(&Config.FullChannelCheckInterval, "full-channel-check-interval", 20*time.Millisecond, "check a full channel interval")
+	flag.DurationVar(&Config.FullChannelTimeout, "full-channel-timeout", 5*time.Second, "abandon a full channel after this time")
+	flag.DurationVar(&Config.HealthTransactionTimeout, "health-transaction-timeout", 10*time.Second, "return error on health if transaction was not received for this period")
 
 	flag.Parse()
 	marshal, err := json.Marshal(Config)

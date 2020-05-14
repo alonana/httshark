@@ -66,14 +66,17 @@ func (s *SitesStats) Process(harData *har.Har) error {
 		return fmt.Errorf("marshal har failed: %v", err)
 	}
 
-	s.totalStats.totalSize += uint64(len(data))
+	dataLen := len(data)
+	data = nil
+
+	s.totalStats.totalSize += uint64(dataLen)
 	s.totalStats.totalTransactions += uint64(len(harData.Log.Entries))
 	s.updateSizesStats(&s.totalStats, harData)
 
 	if core.Config.SplitByHost {
 		host := harData.Log.Entries[0].GetHost()
 		hostStats := s.hostsStats[host]
-		hostStats.totalSize += uint64(len(data))
+		hostStats.totalSize += uint64(dataLen)
 		hostStats.totalTransactions += uint64(len(harData.Log.Entries))
 		s.updateSizesStats(&hostStats, harData)
 		s.hostsStats[host] = hostStats

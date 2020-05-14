@@ -110,7 +110,7 @@ func RunHttpDump(p TransactionProcessor) {
 
 		case <-ticker:
 			core.V2("flush older")
-			assembler.flushOlderThan(time.Now().Add(core.Config.ResponseTimeout))
+			assembler.flushOlderThan(time.Now().Add(-core.Config.ResponseTimeout))
 		}
 	}
 }

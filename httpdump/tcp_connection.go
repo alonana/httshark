@@ -68,10 +68,10 @@ func (connection *TCPConnection) onReceive(src Endpoint, tcp *layers.TCP, timest
 }
 
 func (connection *TCPConnection) forceClose() {
+	core.V2("%v tcp connection - force close", connection.key)
 	connection.upStream.closed = true
 	connection.downStream.closed = true
 	connection.finish()
-
 }
 
 func (connection *TCPConnection) closed() bool {
@@ -79,6 +79,7 @@ func (connection *TCPConnection) closed() bool {
 }
 
 func (connection *TCPConnection) finish() {
+	core.V2("%v tcp connection - finish", connection.key)
 	connection.upStream.finish()
 	connection.downStream.finish()
 }

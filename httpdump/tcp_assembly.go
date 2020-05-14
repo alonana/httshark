@@ -51,7 +51,7 @@ func (assembler *TCPAssembler) assemble(flow gopacket.Flow, tcp *layers.TCP, tim
 	connection.onReceive(src, tcp, timestamp)
 
 	if connection.closed() {
-		core.V2("connection %v closing", key)
+		core.V2("%v assembly - closing", key)
 		assembler.deleteConnection(key)
 		connection.finish()
 	}
