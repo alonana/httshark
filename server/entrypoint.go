@@ -21,6 +21,7 @@ type EntryPoint struct {
 	correlatorProcessor correlator.Processor
 	bulkProcessor       bulk.Processor
 	lineProcessor       line.Processor
+	exporterProcessor   *exporters.Processor
 }
 
 func (p *EntryPoint) Run() {
@@ -28,17 +29,19 @@ func (p *EntryPoint) Run() {
 	core.Info("Starting")
 	aggregated.InitLog()
 
+	http.HandleFunc("/", p.health)
+
 	go func() {
 		core.Warn("HTTP SERVER: %v", http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	exporterProcessor := exporters.CreateProcessor()
-	exporterProcessor.Start()
+	p.exporterProcessor = exporters.CreateProcessor()
+	p.exporterProcessor.Start()
 
 	if core.Config.Capture == "httpdump" {
-		httpdump.RunHttpDump(exporterProcessor.Queue)
+		httpdump.RunHttpDump(p.exporterProcessor.Queue)
 	} else {
-		p.correlatorProcessor = correlator.Processor{Processor: exporterProcessor.Queue}
+		p.correlatorProcessor = correlator.Processor{Processor: p.exporterProcessor.Queue}
 		p.correlatorProcessor.Start()
 
 		p.bulkProcessor = bulk.Processor{HttpProcessor: p.correlatorProcessor.Queue}
@@ -66,6 +69,17 @@ func (p *EntryPoint) Run() {
 		p.bulkProcessor.Stop()
 		p.correlatorProcessor.Stop()
 	}
-	exporterProcessor.Stop()
+	p.exporterProcessor.Stop()
 	core.Info("Terminating complete")
+}
+
+func (p *EntryPoint) health(w http.ResponseWriter, _ *http.Request) {
+	err := p.exporterProcessor.CheckHealth()
+	if err == nil {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("OK"))
+		return
+	}
+	w.WriteHeader(500)
+	_, _ = w.Write([]byte(err.Error()))
 }

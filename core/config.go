@@ -36,6 +36,7 @@ type Configuration = struct {
 	NetworkStreamChannelTimeout time.Duration
 	FullChannelCheckInterval    time.Duration
 	FullChannelTimeout          time.Duration
+	HealthTransactionTimeout    time.Duration
 }
 
 var Config Configuration
@@ -69,6 +70,7 @@ func Init() {
 	flag.DurationVar(&Config.AggregatedLogInterval, "aggregated-log-interval", time.Minute, "print aggregated log messages interval")
 	flag.DurationVar(&Config.FullChannelCheckInterval, "full-channel-check-interval", 20*time.Millisecond, "check a full channel interval")
 	flag.DurationVar(&Config.FullChannelTimeout, "full-channel-timeout", 5*time.Second, "abandon a full channel after this time")
+	flag.DurationVar(&Config.HealthTransactionTimeout, "health-transaction-timeout", 10*time.Second, "return error on health if transaction was not received for this period")
 
 	flag.Parse()
 	marshal, err := json.Marshal(Config)
