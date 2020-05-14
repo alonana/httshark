@@ -34,6 +34,8 @@ type Configuration = struct {
 	AggregatedLogInterval       time.Duration
 	ExportInterval              time.Duration
 	NetworkStreamChannelTimeout time.Duration
+	FullChannelCheckInterval    time.Duration
+	FullChannelTimeout          time.Duration
 }
 
 var Config Configuration
@@ -65,6 +67,8 @@ func Init() {
 	flag.DurationVar(&Config.LogSnapshotInterval, "log-snapshot-interval", 0, "print log snapshot interval")
 	flag.DurationVar(&Config.NetworkStreamChannelTimeout, "network-stream-channel-timeout", 5*time.Second, "network stream go routine accept new packet timeout")
 	flag.DurationVar(&Config.AggregatedLogInterval, "aggregated-log-interval", time.Minute, "print aggregated log messages interval")
+	flag.DurationVar(&Config.FullChannelCheckInterval, "full-channel-check-interval", 20*time.Millisecond, "check a full channel interval")
+	flag.DurationVar(&Config.FullChannelTimeout, "full-channel-timeout", 5*time.Second, "abandon a full channel after this time")
 
 	flag.Parse()
 	marshal, err := json.Marshal(Config)
