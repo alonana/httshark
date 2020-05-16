@@ -13,7 +13,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
+	"time"
 )
 
 type EntryPoint struct {
@@ -24,12 +26,28 @@ type EntryPoint struct {
 	exporterProcessor   *exporters.Processor
 }
 
+// processHealthMonitor publishes health stats info to AWS CloudWatch every "duration"
+func processHealthMonitor(duration time.Duration) {
+	for {
+		<-time.After(duration)
+		var numOfGoroutines = runtime.NumGoroutine()
+		//var memStats runtime.MemStats
+		//runtime.ReadMemStats(&memStats)
+		core.Info("Number of goroutines: %d",numOfGoroutines)
+		//core.Info("Mem stats: %v",memStats)
+		core.CloudWatchClient.PutMetric("num_of_goroutines", "Count",  float64(numOfGoroutines), "httshark_health_monitor")
+	}
+}
 func (p *EntryPoint) Run() {
 	core.Init()
 	core.Info("Starting")
 	aggregated.InitLog()
 
 	http.HandleFunc("/", p.health)
+	if core.Config.ActivateHealthMonitor {
+		go processHealthMonitor(core.Config.HealthMonitorInterval)
+	}
+
 
 	go func() {
 		core.Warn("HTTP SERVER: %v", http.ListenAndServe("localhost:6060", nil))
@@ -73,6 +91,7 @@ func (p *EntryPoint) Run() {
 	core.Info("Terminating complete")
 }
 
+
 func (p *EntryPoint) health(w http.ResponseWriter, _ *http.Request) {
 	err := p.exporterProcessor.CheckHealth()
 	if err == nil {
@@ -83,3 +102,5 @@ func (p *EntryPoint) health(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(500)
 	_, _ = w.Write([]byte(err.Error()))
 }
+
+

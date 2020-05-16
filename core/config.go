@@ -16,6 +16,7 @@ type Configuration = struct {
 	LogSnapshotAmount           int
 	LimitedErrorLength          int
 	SplitByHost                 bool
+	ActivateHealthMonitor       bool
 	Hosts                       string
 	DropContentTypes            string
 	HarProcessors               string
@@ -27,10 +28,12 @@ type Configuration = struct {
 	RequestsSizesStatsFile      string
 	ResponsesSizesStatsFile     string
 	SampledTransactionsFolder   string
+	AWSRegion                   string
 	LogSnapshotInterval         time.Duration
 	ResponseTimeout             time.Duration
 	ResponseCheckInterval       time.Duration
 	StatsInterval               time.Duration
+	HealthMonitorInterval       time.Duration
 	AggregatedLogInterval       time.Duration
 	ExportInterval              time.Duration
 	NetworkStreamChannelTimeout time.Duration
@@ -50,6 +53,7 @@ func Init() {
 	flag.IntVar(&Config.LogSnapshotAmount, "log-snapshot-amount", 0, "print snapshot of logs messages count")
 	flag.IntVar(&Config.NetworkStreamChannelSize, "network-stream-channel-size", 1024, "network stream channel size")
 	flag.BoolVar(&Config.SplitByHost, "split-by-host", true, "split output files by the request host")
+	flag.BoolVar(&Config.ActivateHealthMonitor, "activate-health-monitor", true, "send health stats to AWS CloudWatch")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "har files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
 	flag.StringVar(&Config.DropContentTypes, "drop-content-type", "image,audio,video", "comma separated list of content type whose body should be removed (case insensitive, using include for match)")
@@ -60,9 +64,11 @@ func Init() {
 	flag.StringVar(&Config.RequestsSizesStatsFile, "requests-sizes-stats-file", "requests_sizes.csv", "requests sizes statistics CSV file")
 	flag.StringVar(&Config.ResponsesSizesStatsFile, "responses-sizes-stats-file", "responses_sizes.csv", "responses sizes statistics CSV file")
 	flag.StringVar(&Config.SampledTransactionsFolder, "sampled-transactions-folder", "sampled", "sampled transactions output folder")
+	flag.StringVar(&Config.AWSRegion, "aws-region", "us-east-1", "AWS Region")
 	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,sites-stats,transactions-sizes,sampled-transactions")
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
+	flag.DurationVar(&Config.HealthMonitorInterval, "health-monitor-interval", 5*time.Minute, "publish system health stats interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
 	flag.DurationVar(&Config.StatsInterval, "stats-interval", 10*time.Second, "print stats exporter interval")
 	flag.DurationVar(&Config.LogSnapshotInterval, "log-snapshot-interval", 0, "print log snapshot interval")
