@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"log"
 	"time"
-	"os"
 )
 
 
@@ -20,10 +19,6 @@ func (c AWSCloudWatchClient)PutMetric(metricName string, unitName string, metric
 		c.watchService = cloudwatch.New(session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(true),
 			Region: &Config.AWSRegion})))
 	}
-	dcvaName,ok := os.LookupEnv("DCVA_NAME")
-	if !ok {
-		dcvaName = "UnknownDCVA"
-	}
 	params := &cloudwatch.PutMetricDataInput{
 		MetricData: []*cloudwatch.MetricDatum{
 			&cloudwatch.MetricDatum{
@@ -34,7 +29,7 @@ func (c AWSCloudWatchClient)PutMetric(metricName string, unitName string, metric
 				Dimensions: []*cloudwatch.Dimension{
 					&cloudwatch.Dimension{
 						Name:  aws.String(metricName),
-						Value: aws.String(dcvaName),
+						Value: aws.String(Config.DCVAName),
 					},
 				},
 			},
@@ -47,4 +42,3 @@ func (c AWSCloudWatchClient)PutMetric(metricName string, unitName string, metric
 		log.Printf("Failure to put cloudwatch metric: %s", err)
 	}
 }
-

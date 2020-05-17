@@ -27,6 +27,10 @@ func CreateProcessor() *Processor {
 			s := SitesStats{}
 			go s.init()
 			harProcessor = s.Process
+		} else if name == "cw-sites-stats" {
+			s := PeriodicSiteStats{}
+			go s.init()
+			harProcessor = s.Process
 		} else if name == "file" {
 			harProcessor = HarToFile
 		} else {
