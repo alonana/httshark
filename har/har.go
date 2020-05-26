@@ -1,8 +1,10 @@
 package har
 
 import (
+	"errors"
 	"github.com/alonana/httshark/core"
-	"strings"
+	"github.com/alonana/httshark/core/aggregated"
+	"net/url"
 )
 
 type Cookie struct {
@@ -77,18 +79,31 @@ type Har struct {
 	Log Log `json:"log"`
 }
 
-func (e *Entry) GetHost() string {
-	url := e.Request.Url
-	position := strings.Index(url, "://")
-	if position == -1 {
-		core.Warn("unable to extract host from %v", url)
-		return "UNKNOWN"
+func (e Entry) GetHost() string {
+	url, err := url.Parse(e.Request.Url)
+	if err != nil {
+		aggregated.Warn("Failed to parse url: %v , err: %v",e.Request.Url, core.LimitedError(err))
+		host,err := e.getHostByHostHeader()
+		if err != nil {
+			core.Warn("unable to extract host from %v and unable to find Host header", url)
+			return "UNKNOWN"
+		} else {
+			return host
+		}
+	} else {
+		if len(url.Host) > 0 {
+			return url.Host
+		} else {
+			return "UNKNOWN"
+		}
 	}
-	url = url[position+3:]
-	position = strings.Index(url, "/")
-	if position == -1 {
-		return url
+}
+
+func (e Entry) getHostByHostHeader() (string,error) {
+	for _, pair := range e.Request.Headers {
+		if pair.Name == "Host" {
+			return pair.Value,nil
+		}
 	}
-	url = url[:position]
-	return url
+	return "",errors.New("can't find Host header")
 }

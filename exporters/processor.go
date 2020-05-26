@@ -33,6 +33,10 @@ func CreateProcessor() *Processor {
 			harProcessor = s.Process
 		} else if name == "file" {
 			harProcessor = HarToFile
+		} else if name == "s3" {
+			s := S3Client{}
+			go s.init()
+			harProcessor = s.Process
 		} else {
 			s := TransactionsSizes{}
 			go s.init()
@@ -53,6 +57,7 @@ type Processor struct {
 	processors          []HarProcessor
 	count               uint64
 	lastTransactionTime time.Time
+	contentTypesToKeep  []string
 }
 
 func (p *Processor) process(harFile *har.Har) error {
@@ -71,6 +76,7 @@ func (p *Processor) Start() {
 	p.stopped = false
 	p.input = make(chan core.HttpTransaction, core.Config.ChannelBuffer)
 	p.waitGroup.Add(2)
+	p.contentTypesToKeep = strings.Split(core.Config.KeepContentTypes, ",")
 	go p.aggregate()
 	go p.export()
 }
@@ -222,7 +228,7 @@ func (p *Processor) convert(transaction core.HttpTransaction) har.Entry {
 		harResponse.Content.Size = len(response.Data)
 		harResponse.Content.Text = response.Data
 
-		if p.isDrop(harResponse.Headers) {
+		if !p.shouldKeep(harResponse.Headers) {
 			harResponse.Content.Text = ""
 		}
 	}
@@ -242,10 +248,10 @@ func (p *Processor) convert(transaction core.HttpTransaction) har.Entry {
 			Text:     request.Data,
 		},
 	}
-
-	if p.isDrop(harRequest.Headers) {
-		harRequest.Content.Text = ""
+	if !p.shouldKeep(harRequest.Headers) {
+		harResponse.Content.Text = ""
 	}
+
 
 	return har.Entry{
 		Started:  request.Time.Format("2006-01-02T15:04:05.000Z"),
@@ -309,6 +315,17 @@ func (p *Processor) getQueryString(query string) []har.Pair {
 	return queryString
 }
 
+
+func (p *Processor) shouldKeep(headers []har.Pair) bool {
+	for i := 0; i < len(headers); i++ {
+		header := headers[i]
+		if strings.ToLower(header.Name) == "content-type" && p.shouldKeepContentType(header.Value) {
+			return true
+		}
+	}
+	return false
+}
+/*
 func (p *Processor) isDrop(headers []har.Pair) bool {
 	for i := 0; i < len(headers); i++ {
 		header := headers[i]
@@ -318,7 +335,10 @@ func (p *Processor) isDrop(headers []har.Pair) bool {
 	}
 	return false
 }
+*/
 
+
+/*
 func (p *Processor) isDropContentType(value string) bool {
 	if len(core.Config.DropContentTypes) == 0 {
 		return false
@@ -328,6 +348,17 @@ func (p *Processor) isDropContentType(value string) bool {
 	types := strings.Split(core.Config.DropContentTypes, ",")
 	for i := 0; i < len(types); i++ {
 		if strings.Contains(value, types[i]) {
+			return true
+		}
+	}
+	return false
+}
+*/
+
+func (p *Processor) shouldKeepContentType(value string) bool {
+	value = strings.ToLower(value)
+	for i := 0; i < len(p.contentTypesToKeep); i++ {
+		if strings.Contains(value, p.contentTypesToKeep[i]) {
 			return true
 		}
 	}

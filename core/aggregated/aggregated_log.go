@@ -18,11 +18,13 @@ func InitLog() {
 		for {
 			select {
 			case <-tick.C:
+				publishToCloudWatch()
 				printAggregated()
 			}
 		}
 	}()
 }
+
 
 func Warn(format string, v ...interface{}) {
 	mutex.Lock()
@@ -30,6 +32,19 @@ func Warn(format string, v ...interface{}) {
 
 	message := fmt.Sprintf(format, v...)
 	messages[message]++
+}
+
+func publishToCloudWatch() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if len(messages) == 0 {
+		return
+	}
+	for warningDescription, warningCounter := range messages {
+		core.CloudWatchClient.PutMetric(warningDescription,"Count",
+			float64(warningCounter),"httshark_warnings")
+	}
 }
 
 func printAggregated() {

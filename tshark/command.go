@@ -4,21 +4,27 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/alonana/httshark/core"
+	"github.com/alonana/httshark/exporters"
 	"io"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
 type LineProcessor func(line string)
+const PACKET_DROP = "Packets received/dropped on interface"
+const WARNING = "WARNING"
 
 type CommandLine struct {
 	Processor LineProcessor
 }
 
 func (c *CommandLine) Start() error {
-	args := fmt.Sprintf("sudo tshark -i %v -f '%v'  -Y http -T json",
+	args := fmt.Sprintf("sudo dumpcap -i %v -f '%v' -B %v -w - | sudo tshark -r - -Y http -T json",
 		core.Config.Device,
-		c.getFilter())
+		c.getFilter(),
+		core.Config.DumpCapBufferSize)
+
 
 	args += " -e frame.time_epoch"
 	args += " -e tcp.stream"
@@ -34,7 +40,7 @@ func (c *CommandLine) Start() error {
 	args += " -e http.response.code"
 	args += " -e http.response.line"
 
-	core.V1("running command: %v", args)
+	core.Info("running command: %v", args)
 	cmd := exec.Command("sh", "-c", args)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -56,27 +62,29 @@ func (c *CommandLine) Start() error {
 
 	return nil
 }
-
+// build the BPF
 func (c *CommandLine) getFilter() string {
+	bpf := ""
 	hosts := core.ProduceHosts(core.Config.Hosts).GetHosts()
 	if len(hosts) == 1 {
-		return c.GetHostFilter(hosts[0])
+		bpf =  "tcp && (" + c.GetHostFilter(hosts[0]) + ")"
+	} else {
+		var filters []string
+		for i := 0; i < len(hosts); i++ {
+			filters = append(filters, c.GetHostFilter(hosts[i]))
+		}
+		bpf = fmt.Sprintf("tcp && ((%v)", strings.Join(filters, ") || (")) + ")"
 	}
-
-	var filters []string
-	for i := 0; i < len(hosts); i++ {
-		filters = append(filters, c.GetHostFilter(hosts[i]))
-	}
-
-	return fmt.Sprintf("(%v)", strings.Join(filters, ") or ("))
+	core.Info("BPF  = %v",bpf)
+	return bpf
 }
 
 func (c *CommandLine) GetHostFilter(host core.Host) string {
 	if len(host.Ip) == 0 {
-		return fmt.Sprintf("tcp port %v", host.Port)
+		return fmt.Sprintf("port %v", host.Port)
 	}
 
-	return fmt.Sprintf("tcp port %v and host %v", host.Port, host.Ip)
+	return fmt.Sprintf("port %v && host %v", host.Port, host.Ip)
 }
 
 func (c *CommandLine) getPortsFilter() string {
@@ -106,6 +114,21 @@ func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 		core.V5("read line: %v", line)
 		if collectJson {
 			c.Processor(line)
+		} else {
+			// this is the error stream - we want to extract a subset of the data into the log
+			var packetDropMsg = strings.Index(line,PACKET_DROP) == 0
+			if packetDropMsg || strings.Index(line,WARNING) != -1 {
+				core.Info("Error stream: %v",line)
+				if packetDropMsg {
+					left := strings.LastIndex(line,"(")
+					right := strings.LastIndex(line,")")
+					pct,_ := strconv.Atoi(line[left:right-1])
+					pctFloat := float64(pct)
+					core.CloudWatchClient.PutMetric("dropped_packets","Percent",
+						pctFloat,exporters.NAMESPACE)
+				}
+			}
+
 		}
 	}
 }

@@ -15,11 +15,12 @@ type Configuration = struct {
 	LogSnapshotLevel            int
 	LogSnapshotAmount           int
 	LimitedErrorLength          int
+	DumpCapBufferSize           int
 	SplitByHost                 bool
 	ActivateHealthMonitor       bool
 	SendSiteStatsToCloudWatch   bool
 	Hosts                       string
-	DropContentTypes            string
+	KeepContentTypes            string
 	HarProcessors               string
 	Capture                     string
 	Device                      string
@@ -31,6 +32,7 @@ type Configuration = struct {
 	SampledTransactionsFolder   string
 	AWSRegion                   string
 	DCVAName                    string
+	S3ExporterBucketName        string
 	LogSnapshotInterval         time.Duration
 	ResponseTimeout             time.Duration
 	ResponseCheckInterval       time.Duration
@@ -49,6 +51,7 @@ var Config Configuration
 
 func Init() {
 	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 15, "truncate long errors to this length")
+	flag.IntVar(&Config.DumpCapBufferSize, "dumpcap-buffer-size", 20, "capture buffer size (in MiB)")
 	flag.IntVar(&Config.SampledTransactionsRate, "sample-transactions-rate", 1, "how many transactions should be sampled in each stats interval")
 	flag.IntVar(&Config.ChannelBuffer, "channel-buffer", 1, "channel buffer size")
 	flag.IntVar(&Config.Verbose, "verbose", 0, "print verbose information. 0=nothing 5=all")
@@ -60,7 +63,7 @@ func Init() {
 	flag.BoolVar(&Config.SendSiteStatsToCloudWatch, "send-sites-stats-to-cloudwatch", true, "send site stats stats to AWS CloudWatch")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "har files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
-	flag.StringVar(&Config.DropContentTypes, "drop-content-type", "image,audio,video", "comma separated list of content type whose body should be removed (case insensitive, using include for match)")
+	flag.StringVar(&Config.KeepContentTypes, "keep-content-type", "json", "comma separated list of content type whose body should be kept (case insensitive, using include for match)")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")
 	flag.StringVar(&Config.Capture, "capture", "tshark", "capture engine to use, one of tshark,httpdump")
 	flag.StringVar(&Config.LogSnapshotFile, "log-snapshot-file", "snapshot.log", "logs snapshot file name")
@@ -70,6 +73,7 @@ func Init() {
 	flag.StringVar(&Config.SampledTransactionsFolder, "sampled-transactions-folder", "sampled", "sampled transactions output folder")
 	flag.StringVar(&Config.AWSRegion, "aws-region", "us-east-1", "AWS Region")
 	flag.StringVar(&Config.DCVAName, "dcva-name", "undefined-dcva", "DCVA name")
+	flag.StringVar(&Config.S3ExporterBucketName, "s3-bucket-name", "", "S3 bucket name")
 	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,sites-stats,transactions-sizes,sampled-transactions")
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
@@ -96,11 +100,24 @@ func Init() {
 	if Config.Device == "" {
 		Fatal("device argument must be supplied")
 	}
+	supportedProcessors := map[string]bool{
+		"file": true,
+		"sites-stats":   true,
+		"cw-sites-stats": true,
+		"transactions-sizes": true,
+		"sampled-transactions": true,
+		"s3": true,
+	}
 	processors := strings.Split(Config.HarProcessors, ",")
 	for i := 0; i < len(processors); i++ {
 		processor := processors[i]
-		if processor != "file" && processor != "sites-stats" && processor != "cw-sites-stats" && processor != "transactions-sizes" && processor != "sampled-transactions" {
-			Fatal("invalid har processor specified")
+		if !supportedProcessors[processor] {
+			Fatal("invalid har processor specified %v",processor)
+		}
+	}
+	for _,processor := range processors {
+		if processor == "s3" && len(Config.S3ExporterBucketName) == 0 {
+			Fatal("S3 exporter is active and S3 bucket in not defined. Use -s3-bucket-name <my_bucket_name>")
 		}
 	}
 	if Config.Capture != "tshark" && Config.Capture != "httpdump" {
