@@ -19,6 +19,7 @@ type Configuration = struct {
 	SplitByHost                 bool
 	ActivateHealthMonitor       bool
 	SendSiteStatsToCloudWatch   bool
+	S3ExporterShouldCompress    bool
 	Hosts                       string
 	KeepContentTypes            string
 	HarProcessors               string
@@ -60,6 +61,7 @@ func Init() {
 	flag.IntVar(&Config.NetworkStreamChannelSize, "network-stream-channel-size", 1024, "network stream channel size")
 	flag.BoolVar(&Config.SplitByHost, "split-by-host", true, "split output files by the request host")
 	flag.BoolVar(&Config.ActivateHealthMonitor, "activate-health-monitor", true, "send health stats to AWS CloudWatch")
+	flag.BoolVar(&Config.S3ExporterShouldCompress, "s3-exporter-compress", true, "compress the HAR before you dump it to s3")
 	flag.BoolVar(&Config.SendSiteStatsToCloudWatch, "send-sites-stats-to-cloudwatch", true, "send site stats stats to AWS CloudWatch")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "har files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
