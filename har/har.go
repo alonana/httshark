@@ -5,6 +5,7 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/core/aggregated"
 	"net/url"
+	"strings"
 )
 
 type Cookie struct {
@@ -79,6 +80,16 @@ type Har struct {
 	Log Log `json:"log"`
 }
 
+// handle the case where we have host and port: api-uat.xyz.com:80
+func removePortFromHost(host string) string {
+	idx := strings.Index(host,":")
+	if idx == -1 {
+		return host
+	} else {
+		return host[:idx]
+	}
+}
+
 func (e Entry) GetHost() string {
 	url, err := url.Parse(e.Request.Url)
 	if err != nil {
@@ -88,11 +99,11 @@ func (e Entry) GetHost() string {
 			core.Warn("unable to extract host from %v and unable to find Host header", url)
 			return "UNKNOWN"
 		} else {
-			return host
+			return removePortFromHost(host)
 		}
 	} else {
 		if len(url.Host) > 0 {
-			return url.Host
+			return removePortFromHost(url.Host)
 		} else {
 			return "UNKNOWN"
 		}

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/core/aggregated"
 	"github.com/alonana/httshark/exporters"
@@ -40,7 +41,7 @@ func processHealthMonitor(duration time.Duration) {
 }
 func (p *EntryPoint) Run() {
 	core.Init()
-	core.Info("Starting")
+	core.Info("Starting. Instance Id: %v, PID: %v",core.Config.InstanceId,os.Getpid())
 	aggregated.InitLog()
 
 	http.HandleFunc("/", p.health)
@@ -50,7 +51,9 @@ func (p *EntryPoint) Run() {
 
 
 	go func() {
-		core.Warn("HTTP SERVER: %v", http.ListenAndServe("localhost:6060", nil))
+		port := 6060 + core.Config.InstanceId
+		hostAndPort := fmt.Sprintf("localhost:%v", port)
+		core.Warn("HTTP SERVER: %v", http.ListenAndServe(hostAndPort, nil))
 	}()
 
 	p.exporterProcessor = exporters.CreateProcessor()
