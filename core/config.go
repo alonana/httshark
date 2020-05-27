@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/namsral/flag"
 	"strings"
 	"time"
@@ -50,8 +51,26 @@ type Configuration = struct {
 }
 
 var Config Configuration
+var supportedProcessors = map[string]bool{
+	"file": true,
+	"sites-stats":   true,
+	"cw-sites-stats": true,
+	"transactions-sizes": true,
+	"sampled-transactions": true,
+	"s3": true,
+}
+var args = make([]string,1)
 
+func grabFlagProperties(f *flag.Flag) {
+	entry := fmt.Sprintf("{'name':'%s', 'val':'%s','def_val':'%s','usage':'%s'}",f.Name,f.Value,f.DefValue,f.Usage)
+	args = append(args, entry)
+}
 func Init() {
+	exporters := make([]string, 0, len(supportedProcessors))
+	for k := range supportedProcessors {
+		exporters = append(exporters, k)
+	}
+	exportersStr := strings.Join(exporters,",")
 	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 15, "truncate long errors to this length")
 	flag.IntVar(&Config.DumpCapBufferSize, "dumpcap-buffer-size", 20, "capture buffer size (in MiB)")
 	flag.IntVar(&Config.InstanceId, "instance-id", 0, "when running in a cluster we identify each instance by this id")
@@ -78,7 +97,7 @@ func Init() {
 	flag.StringVar(&Config.AWSRegion, "aws-region", "us-east-1", "AWS Region")
 	flag.StringVar(&Config.DCVAName, "dcva-name", "undefined-dcva", "DCVA name")
 	flag.StringVar(&Config.S3ExporterBucketName, "s3-bucket-name", "", "S3 bucket name")
-	flag.StringVar(&Config.HarProcessors, "har-processors", "file", "comma separated processors of the har file. use any of file,sites-stats,transactions-sizes,sampled-transactions")
+	flag.StringVar(&Config.HarProcessors, "har-processors", "file",exportersStr)
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.HealthMonitorInterval, "health-monitor-interval", 1*time.Minute, "publish system health stats interval")
@@ -93,6 +112,10 @@ func Init() {
 	flag.DurationVar(&Config.HealthTransactionTimeout, "health-transaction-timeout", 10*time.Second, "return error on health if transaction was not received for this period")
 
 	flag.Parse()
+	flag.VisitAll(grabFlagProperties)
+	allArgs := "[" + strings.Join(args, ",")[1:] + "]"
+	Info("All args: %s",allArgs)
+
 	marshal, err := json.Marshal(Config)
 	if err != nil {
 		Fatal("marshal config failed: %v", err)
@@ -104,14 +127,7 @@ func Init() {
 	if Config.Device == "" {
 		Fatal("device argument must be supplied")
 	}
-	supportedProcessors := map[string]bool{
-		"file": true,
-		"sites-stats":   true,
-		"cw-sites-stats": true,
-		"transactions-sizes": true,
-		"sampled-transactions": true,
-		"s3": true,
-	}
+
 	processors := strings.Split(Config.HarProcessors, ",")
 	for i := 0; i < len(processors); i++ {
 		processor := processors[i]
