@@ -31,12 +31,13 @@ func (s *S3Client) Process(harData *har.Har) error {
 	if err != nil {
 		return fmt.Errorf("marshal har failed: %v", err)
 	}
-    //key format: <dcva_name>|<host>|<num_of_entries>|<time>.har.<optional_gzip>
+    //key format: <dcva_name>|<instance_id>|<host>|<num_of_entries>|<time>.har.<optional_gzip>
     gzipExt := ""
 	if core.Config.S3ExporterShouldCompress {
 		gzipExt = ".gzip"
 	}
-	key := fmt.Sprintf("%s__%s__%s__%s.har%s",core.Config.DCVAName,
+	key := fmt.Sprintf("%s__%s__%s__%s__%s.har%s",core.Config.DCVAName,
+		strconv.FormatInt(int64(core.Config.InstanceId),10),
 		harData.Log.Entries[0].GetHost(),
 		strconv.FormatInt(int64(len(harData.Log.Entries)),10),
 		strconv.FormatInt(time.Now().UnixNano(),10),
