@@ -234,6 +234,7 @@ func (p *Processor) convert(transaction core.HttpTransaction) har.Entry {
 	}
 
 	harRequest := har.Request{
+		AppId:       &har.AppIdentifier{DstIP: request.HttpIpAndPort.DstIP, DstPort: request.HttpIpAndPort.DstPort},
 		Method:      request.Method,
 		Url:         request.Path,
 		HttpVersion: request.Version,

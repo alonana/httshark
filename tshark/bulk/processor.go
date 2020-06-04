@@ -116,8 +116,17 @@ func (p *Processor) convert(tsharkJson *types.Stdout, originalEntry string) {
 		if len(layers.RequestMethod) > 0 {
 			method = layers.RequestMethod[0]
 		}
-
+		dstIp := layers.DstIp[0]
+		dstPort := layers.DstPort[0]
+		dstPortInt,err := strconv.Atoi(dstPort)
+		if err != nil {
+			core.Warn("parse dst port in %+v failed: %v", tsharkJson, err)
+			return
+		}
+		ipAndPort := core.HttpIpAndPort{DstIP: dstIp, DstPort: dstPortInt}
+		//IpAndPort HttpIpAndPort
 		request := core.HttpRequest{
+			HttpIpAndPort: ipAndPort,
 			HttpEntry: httpEntry,
 			Method:    method,
 			Path:      path,

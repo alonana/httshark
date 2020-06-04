@@ -10,11 +10,17 @@ type HttpEntry struct {
 	Headers []string
 }
 
+type HttpIpAndPort struct {
+	DstIP       string
+	DstPort     int
+}
+
 type HttpRequest struct {
 	HttpEntry
-	Method string
-	Path   string
-	Query  string
+	Method        string
+	Path          string
+	Query         string
+	HttpIpAndPort HttpIpAndPort
 }
 
 type HttpResponse struct {

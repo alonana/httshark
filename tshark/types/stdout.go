@@ -13,6 +13,9 @@ type Layers struct {
 	TcpStream []string `json:"tcp.stream"`
 	Data      []string `json:"http.file_data"`
 
+	DstIp    []string `json:"ip.dst"`
+	DstPort  []string `json:"tcp.dstport"`
+
 	IsRequest      []string `json:"http.request"`
 	RequestMethod  []string `json:"http.request.method"`
 	RequestVersion []string `json:"http.request.version"`

@@ -18,6 +18,7 @@ type Configuration = struct {
 	LimitedErrorLength          int
 	DumpCapBufferSize           int
 	InstanceId                  int
+	S3ExporterMaxNumOfEntries   int
 	SplitByHost                 bool
 	ActivateHealthMonitor       bool
 	SendSiteStatsToCloudWatch   bool
@@ -36,6 +37,7 @@ type Configuration = struct {
 	AWSRegion                   string
 	DCVAName                    string
 	S3ExporterBucketName        string
+	S3ExporterPurgeInterval     time.Duration
 	LogSnapshotInterval         time.Duration
 	ResponseTimeout             time.Duration
 	ResponseCheckInterval       time.Duration
@@ -80,6 +82,7 @@ func Init() {
 	flag.IntVar(&Config.LogSnapshotLevel, "log-snapshot-level", 0, "print snapshot of logs from verbosity level. 0=nothing 5=all")
 	flag.IntVar(&Config.LogSnapshotAmount, "log-snapshot-amount", 0, "print snapshot of logs messages count")
 	flag.IntVar(&Config.NetworkStreamChannelSize, "network-stream-channel-size", 1024, "network stream channel size")
+	flag.IntVar(&Config.S3ExporterMaxNumOfEntries, "s3-exporter-max-num-of-entries-to-hold", 1024, "max number of entries to accumulate before sending to s3")
 	flag.BoolVar(&Config.SplitByHost, "split-by-host", true, "split output files by the request host")
 	flag.BoolVar(&Config.ActivateHealthMonitor, "activate-health-monitor", true, "send health stats to AWS CloudWatch")
 	flag.BoolVar(&Config.S3ExporterShouldCompress, "s3-exporter-compress", true, "compress the HAR before you dump it to s3")
@@ -99,6 +102,7 @@ func Init() {
 	flag.StringVar(&Config.S3ExporterBucketName, "s3-bucket-name", "", "S3 bucket name")
 	flag.StringVar(&Config.HarProcessors, "har-processors", "file",exportersStr)
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
+	flag.DurationVar(&Config.S3ExporterPurgeInterval, "s3-exporter-purge-interval", 1*time.Minute, "timeout for exporting data to s3")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
 	flag.DurationVar(&Config.HealthMonitorInterval, "health-monitor-interval", 1*time.Minute, "publish system health stats interval")
 	flag.DurationVar(&Config.CloudWatchStatsInterval, "cloud-watch-stats-interval", 1*time.Minute, "publish traffic stats to cloud watch interval")

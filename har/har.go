@@ -2,8 +2,10 @@ package har
 
 import (
 	"errors"
+	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/core/aggregated"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -31,16 +33,30 @@ type Content struct {
 	Text     string `json:"text"`
 }
 
+type AppIdentifier struct {
+	DstIP       string   `json:"dstIp,omitempty"`
+	DstPort     int      `json:"dstPort,omitempty"`
+}
+func (a *AppIdentifier) Empty() {
+	a.DstIP = ""
+	a.DstPort = 0
+}
+
+func (a *AppIdentifier) String() string {
+	return fmt.Sprintf("%s_%d", a.DstIP, a.DstPort)
+}
+
 type Request struct {
-	Method      string   `json:"method"`
-	Url         string   `json:"url"`
-	HttpVersion string   `json:"httpVersion"`
-	Headers     []Pair   `json:"headers"`
-	QueryString []Pair   `json:"queryString"`
-	Cookies     []Cookie `json:"cookies"`
-	HeadersSize int      `json:"headersSize"`
-	BodySize    int      `json:"bodySize"`
-	Content     Content  `json:"content"`
+	Method      string         `json:"method"`
+	Url         string         `json:"url"`
+	HttpVersion string         `json:"httpVersion"`
+	Headers     []Pair         `json:"headers"`
+	QueryString []Pair         `json:"queryString"`
+	Cookies     []Cookie       `json:"cookies"`
+	HeadersSize int            `json:"headersSize"`
+	BodySize    int            `json:"bodySize"`
+	Content     Content        `json:"content"`
+	AppId       *AppIdentifier `json:"appId,omitempty"`
 }
 
 type Response struct {
@@ -90,6 +106,23 @@ func removePortFromHost(host string) string {
 	}
 }
 
+func getDomainName(maybeIP string) string {
+	if net.ParseIP(maybeIP) != nil {
+		fqdn, _ := net.LookupAddr(maybeIP)
+		if len(fqdn) > 0 {
+			return fqdn[0]
+		} else {
+			return maybeIP
+		}
+	} else {
+		return maybeIP
+	}
+}
+
+func (e Entry) GetAppId() string {
+	return e.Request.AppId.String()
+}
+
 func (e Entry) GetHost() string {
 	url, err := url.Parse(e.Request.Url)
 	if err != nil {
@@ -99,11 +132,11 @@ func (e Entry) GetHost() string {
 			core.Warn("unable to extract host from %v and unable to find Host header", url)
 			return "UNKNOWN"
 		} else {
-			return removePortFromHost(host)
+			return getDomainName(removePortFromHost(host))
 		}
 	} else {
 		if len(url.Host) > 0 {
-			return removePortFromHost(url.Host)
+			return getDomainName(removePortFromHost(url.Host))
 		} else {
 			return "UNKNOWN"
 		}

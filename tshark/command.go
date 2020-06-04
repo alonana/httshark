@@ -25,9 +25,10 @@ func (c *CommandLine) Start() error {
 		c.getFilter(),
 		core.Config.DumpCapBufferSize)
 
-
-	args += " -e frame.time_epoch"
+	args += " -e ip.dst"
+	args += " -e tcp.dstport"
 	args += " -e tcp.stream"
+	args += " -e frame.time_epoch"
 	args += " -e http.request"
 	args += " -e http.request.method"
 	args += " -e http.request.version"
