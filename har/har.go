@@ -1,13 +1,7 @@
 package har
 
 import (
-	"errors"
 	"fmt"
-	"github.com/alonana/httshark/core"
-	"github.com/alonana/httshark/core/aggregated"
-	"net"
-	"net/url"
-	"strings"
 )
 
 type Cookie struct {
@@ -96,58 +90,7 @@ type Har struct {
 	Log Log `json:"log"`
 }
 
-// handle the case where we have host and port: api-uat.xyz.com:80
-func removePortFromHost(host string) string {
-	idx := strings.Index(host,":")
-	if idx == -1 {
-		return host
-	} else {
-		return host[:idx]
-	}
-}
-
-func getDomainName(maybeIP string) string {
-	if net.ParseIP(maybeIP) != nil {
-		fqdn, _ := net.LookupAddr(maybeIP)
-		if len(fqdn) > 0 {
-			return fqdn[0]
-		} else {
-			return maybeIP
-		}
-	} else {
-		return maybeIP
-	}
-}
-
 func (e Entry) GetAppId() string {
 	return e.Request.AppId.String()
 }
 
-func (e Entry) GetHost() string {
-	url, err := url.Parse(e.Request.Url)
-	if err != nil {
-		aggregated.Warn("Failed to parse url: %v , err: %v",e.Request.Url, core.LimitedError(err))
-		host,err := e.getHostByHostHeader()
-		if err != nil {
-			core.Warn("unable to extract host from %v and unable to find Host header", url)
-			return "UNKNOWN"
-		} else {
-			return getDomainName(removePortFromHost(host))
-		}
-	} else {
-		if len(url.Host) > 0 {
-			return getDomainName(removePortFromHost(url.Host))
-		} else {
-			return "UNKNOWN"
-		}
-	}
-}
-
-func (e Entry) getHostByHostHeader() (string,error) {
-	for _, pair := range e.Request.Headers {
-		if pair.Name == "Host" {
-			return pair.Value,nil
-		}
-	}
-	return "",errors.New("can't find Host header")
-}

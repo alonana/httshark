@@ -42,7 +42,7 @@ func (h *Hosts) getHost(arg string) Host {
 
 	port, err := strconv.Atoi(sections[1])
 	if err != nil {
-		Fatal("parse port in %v failed: %v", arg, err)
+		fatal("parse port in %v failed: %v", arg, err)
 	}
 
 	return Host{

@@ -2,6 +2,7 @@ package line
 
 import (
 	"github.com/alonana/httshark/core"
+	"github.com/sirupsen/logrus"
 	"strings"
 	"sync"
 )
@@ -14,6 +15,8 @@ type Processor struct {
 	waitGroup     sync.WaitGroup
 	stopChannel   chan bool
 	stopped       bool
+	Logger        *logrus.Logger
+
 }
 
 func (p *Processor) Start() {
@@ -47,7 +50,7 @@ func (p *Processor) aggregate() {
 			}
 			if line == "  }" {
 				data := strings.Join(lines, "")
-				core.V5("json data is %v", data)
+				p.Logger.Trace("json data is %v", data)
 				p.BulkProcessor(data)
 				lines = nil
 				collect = false
@@ -55,7 +58,7 @@ func (p *Processor) aggregate() {
 			break
 
 		case <-p.stopChannel:
-			core.V1("stdout line processor stopping")
+			p.Logger.Debug("stdout line processor stopping")
 			p.stopped = true
 			break
 		}

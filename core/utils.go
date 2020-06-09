@@ -16,7 +16,7 @@ var  CloudWatchClient  = AWSCloudWatchClient{}
 
 func (c *AWSCloudWatchClient)PutMetric(metricName string, unitName string, metricValue float64, namespace string) {
 	if c.watchService == nil {
-		c.watchService = cloudwatch.New(session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(true),
+		c.watchService = cloudwatch.New(session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(Config.AWSDisableSSL),
 			Region: &Config.AWSRegion})))
 	}
 	params := &cloudwatch.PutMetricDataInput{

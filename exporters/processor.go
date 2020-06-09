@@ -5,6 +5,7 @@ import (
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/core/aggregated"
 	"github.com/alonana/httshark/har"
+	"github.com/sirupsen/logrus"
 	"net/url"
 	"strings"
 	"sync"
@@ -13,8 +14,8 @@ import (
 
 type HarProcessor func(*har.Har) error
 
-func CreateProcessor() *Processor {
-	processor := Processor{}
+func CreateProcessor(logger *logrus.Logger ) *Processor {
+	processor := Processor{Logger: logger}
 	processors := strings.Split(core.Config.HarProcessors, ",")
 	for i := 0; i < len(processors); i++ {
 		name := processors[i]
@@ -24,7 +25,7 @@ func CreateProcessor() *Processor {
 			go s.init()
 			harProcessor = s.Process
 		} else if name == "sites-stats" {
-			s := SitesStats{}
+			s := SitesStats{Logger: logger}
 			go s.init()
 			harProcessor = s.Process
 		} else if name == "cw-sites-stats" {
@@ -34,7 +35,7 @@ func CreateProcessor() *Processor {
 		} else if name == "file" {
 			harProcessor = HarToFile
 		} else if name == "s3" {
-			s := S3Client{}
+			s := S3Client{Logger: logger}
 			go s.init()
 			harProcessor = s.Process
 		} else {
@@ -48,6 +49,7 @@ func CreateProcessor() *Processor {
 }
 
 type Processor struct {
+	Logger              *logrus.Logger
 	input               chan core.HttpTransaction
 	transactions        []core.HttpTransaction
 	mutex               sync.Mutex
@@ -65,7 +67,7 @@ func (p *Processor) process(harFile *har.Har) error {
 		harProcessor := p.processors[i]
 		err := harProcessor(harFile)
 		if err != nil {
-			core.Fatal("process har failed: %v", err)
+			p.Logger.Warn("process har failed: %v", err)
 		}
 	}
 	return nil
@@ -144,7 +146,7 @@ func (p *Processor) aggregate() {
 
 func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 	if len(transactions) == 0 {
-		core.Info("no transactions dumped")
+		p.Logger.Info("no transactions dumped")
 		return
 	}
 
@@ -158,12 +160,12 @@ func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 		harData := harFiles[i]
 		err := p.process(&harData)
 		if err != nil {
-			core.Fatal("marshal har failed: %v", err)
+			p.Logger.Fatal("marshal har failed: %v", err)
 		}
 	}
 
 	p.count += uint64(len(transactions))
-	core.Info("%v total transactions dumped so far", p.count)
+	p.Logger.Info("%v total transactions dumped so far", p.count)
 }
 
 func (p *Processor) getHarFiles(entries []har.Entry) []har.Har {
@@ -172,18 +174,18 @@ func (p *Processor) getHarFiles(entries []har.Entry) []har.Har {
 		return []har.Har{*harData}
 	}
 
-	hosts := make(map[string][]har.Entry)
+	appIdEntriesMap := make(map[string][]har.Entry)
 	for i := 0; i < len(entries); i++ {
 		entry := entries[i]
-		host := entry.GetHost()
-		hostEntries := hosts[host]
-		hostEntries = append(hostEntries, entry)
-		hosts[host] = hostEntries
+		appId := entry.GetAppId()
+		appIdEntries := appIdEntriesMap[appId]
+		appIdEntries = append(appIdEntries, entry)
+		appIdEntriesMap[appId] = appIdEntries
 	}
 
 	var files []har.Har
-	for _, hostEntries := range hosts {
-		harData := p.getHarFile(hostEntries)
+	for _, appIdEntries := range appIdEntriesMap {
+		harData := p.getHarFile(appIdEntries)
 		files = append(files, *harData)
 	}
 	return files

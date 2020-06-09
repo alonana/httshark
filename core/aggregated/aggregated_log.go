@@ -3,7 +3,6 @@ package aggregated
 import (
 	"fmt"
 	"github.com/alonana/httshark/core"
-	"strings"
 	"sync"
 	"time"
 )
@@ -60,8 +59,6 @@ func printAggregated() {
 		record := fmt.Sprintf("%v times: %v", v, k)
 		records = append(records, record)
 	}
-
-	core.Warn("Aggregated logs:\n%v", strings.Join(records, "\n"))
 
 	messages = make(map[string]int)
 }

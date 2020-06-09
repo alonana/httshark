@@ -32,21 +32,21 @@ func logSnapshotAppend(format string, v ...interface{}) {
 	}
 }
 
-func Error(format string, v ...interface{}) {
+func err(format string, v ...interface{}) {
 	logWrite("ERROR", format, v...)
 	os.Exit(1)
 }
 
-func Fatal(format string, v ...interface{}) {
+func fatal(format string, v ...interface{}) {
 	logWrite("FATAL", format, v...)
 	os.Exit(1)
 }
 
-func Warn(format string, v ...interface{}) {
+func warn(format string, v ...interface{}) {
 	logWrite("WARN", format, v...)
 }
 
-func Info(format string, v ...interface{}) {
+func info(format string, v ...interface{}) {
 	logWrite("INFO", format, v...)
 }
 
@@ -98,14 +98,14 @@ func printSnapshot() {
 
 	f, err := os.Create(Config.LogSnapshotFile)
 	if err != nil {
-		Warn("create snapshot file failed: %v", err)
+		warn("create snapshot file failed: %v", err)
 		return
 	}
 
 	defer func() {
 		err = f.Close()
 		if err != nil {
-			Warn("close snapshot file failed: %v", err)
+			warn("close snapshot file failed: %v", err)
 		}
 	}()
 
@@ -113,12 +113,12 @@ func printSnapshot() {
 		line := clone[i]
 		_, err := f.Write([]byte(line))
 		if err != nil {
-			Warn("write to snapshot file failed: %v", err)
+			warn("write to snapshot file failed: %v", err)
 			return
 		}
 		_, err = f.Write([]byte("\n"))
 		if err != nil {
-			Warn("write to snapshot file failed: %v", err)
+			warn("write to snapshot file failed: %v", err)
 			return
 		}
 	}

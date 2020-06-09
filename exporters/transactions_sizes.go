@@ -70,7 +70,7 @@ func (s *TransactionsSizes) printSizes(entities map[int]int, path string) {
 	}
 	err := core.SaveToFile(path, strings.Join(messages, "\n"))
 	if err != nil {
-		core.Warn("save sizes statistics file failed: %v", err)
+		//core.Warn("save sizes statistics file failed: %v", err)
 		return
 	}
 }

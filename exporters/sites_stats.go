@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/har"
+	"github.com/sirupsen/logrus"
 	"sort"
 	"strings"
 	"sync"
@@ -17,6 +18,8 @@ type SitesStats struct {
 	mutex      sync.Mutex
 	startTime  time.Time
 	buckets    []int
+	Logger     *logrus.Logger
+
 }
 
 type SizesStats struct {
@@ -73,13 +76,13 @@ func (s *SitesStats) Process(harData *har.Har) error {
 	s.totalStats.totalTransactions += uint64(len(harData.Log.Entries))
 	s.updateSizesStats(&s.totalStats, harData)
 
-	if core.Config.SplitByHost {
-		host := harData.Log.Entries[0].GetHost()
-		hostStats := s.hostsStats[host]
-		hostStats.totalSize += uint64(dataLen)
-		hostStats.totalTransactions += uint64(len(harData.Log.Entries))
-		s.updateSizesStats(&hostStats, harData)
-		s.hostsStats[host] = hostStats
+	if core.Config.SplitByAppId {
+		appId := harData.Log.Entries[0].GetAppId()
+		appIdStats := s.hostsStats[appId]
+		appIdStats.totalSize += uint64(dataLen)
+		appIdStats.totalTransactions += uint64(len(harData.Log.Entries))
+		s.updateSizesStats(&appIdStats, harData)
+		s.hostsStats[appId] = appIdStats
 	}
 
 	return nil
@@ -113,7 +116,7 @@ func (s *SitesStats) print() {
 
 	err := core.SaveToFile(core.Config.SitesStatsFile, strings.Join(messages, "\n"))
 	if err != nil {
-		core.Warn("create statistics file failed: %v", err)
+		s.Logger.Warn("create statistics file failed: %v", err)
 		return
 	}
 }

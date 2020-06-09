@@ -19,10 +19,15 @@ type Configuration = struct {
 	DumpCapBufferSize           int
 	InstanceId                  int
 	S3ExporterMaxNumOfEntries   int
+	RotateFileMaxSize           int
+	RotateFileMaxBackups        int
+	RotateFileMaxAge            int
 	SplitByHost                 bool
+	SplitByAppId                bool
 	ActivateHealthMonitor       bool
 	SendSiteStatsToCloudWatch   bool
 	S3ExporterShouldCompress    bool
+	AWSDisableSSL               bool
 	Hosts                       string
 	KeepContentTypes            string
 	HarProcessors               string
@@ -37,6 +42,9 @@ type Configuration = struct {
 	AWSRegion                   string
 	DCVAName                    string
 	S3ExporterBucketName        string
+	CloudWatchLogLevels         string
+	RotateFileLevel             string
+	RotateFileFileName          string
 	S3ExporterPurgeInterval     time.Duration
 	LogSnapshotInterval         time.Duration
 	ResponseTimeout             time.Duration
@@ -50,6 +58,7 @@ type Configuration = struct {
 	FullChannelCheckInterval    time.Duration
 	FullChannelTimeout          time.Duration
 	HealthTransactionTimeout    time.Duration
+
 }
 
 var Config Configuration
@@ -73,6 +82,10 @@ func Init() {
 		exporters = append(exporters, k)
 	}
 	exportersStr := strings.Join(exporters,",")
+	// see https://godoc.org/gopkg.in/natefinch/lumberjack.v2
+	flag.IntVar(&Config.RotateFileMaxSize, "rotate-file-max-size", 50, "max size of rotated file (MB)")
+	flag.IntVar(&Config.RotateFileMaxBackups, "rotate-file-max-backups", 20, "max number of rotated file backups")
+	flag.IntVar(&Config.RotateFileMaxAge, "rotate-file-max-age", 100, "max number of days to keep files")
 	flag.IntVar(&Config.LimitedErrorLength, "limited-error-length", 15, "truncate long errors to this length")
 	flag.IntVar(&Config.DumpCapBufferSize, "dumpcap-buffer-size", 20, "capture buffer size (in MiB)")
 	flag.IntVar(&Config.InstanceId, "instance-id", 0, "when running in a cluster we identify each instance by this id")
@@ -83,7 +96,9 @@ func Init() {
 	flag.IntVar(&Config.LogSnapshotAmount, "log-snapshot-amount", 0, "print snapshot of logs messages count")
 	flag.IntVar(&Config.NetworkStreamChannelSize, "network-stream-channel-size", 1024, "network stream channel size")
 	flag.IntVar(&Config.S3ExporterMaxNumOfEntries, "s3-exporter-max-num-of-entries-to-hold", 1024, "max number of entries to accumulate before sending to s3")
+	flag.BoolVar(&Config.AWSDisableSSL, "aws-disable-ssl", false, "disable ssl while using AWS API")
 	flag.BoolVar(&Config.SplitByHost, "split-by-host", true, "split output files by the request host")
+	flag.BoolVar(&Config.SplitByAppId, "split-by-appid", true, "split output files by the app id")
 	flag.BoolVar(&Config.ActivateHealthMonitor, "activate-health-monitor", true, "send health stats to AWS CloudWatch")
 	flag.BoolVar(&Config.S3ExporterShouldCompress, "s3-exporter-compress", true, "compress the HAR before you dump it to s3")
 	flag.BoolVar(&Config.SendSiteStatsToCloudWatch, "send-sites-stats-to-cloudwatch", true, "send site stats stats to AWS CloudWatch")
@@ -101,6 +116,9 @@ func Init() {
 	flag.StringVar(&Config.DCVAName, "dcva-name", "undefined-dcva", "DCVA name")
 	flag.StringVar(&Config.S3ExporterBucketName, "s3-bucket-name", "", "S3 bucket name")
 	flag.StringVar(&Config.HarProcessors, "har-processors", "file",exportersStr)
+	flag.StringVar(&Config.CloudWatchLogLevels, "cw-log-levels", "panic,fatal,error,warn","a comma delimited string of log levels to be written to cloud watch")
+	flag.StringVar(&Config.RotateFileLevel, "rotate-file-min-level", "trace","the min level to write to the file")
+	flag.StringVar(&Config.RotateFileFileName, "rotate-file-name", "httshark.log","log file name")
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.S3ExporterPurgeInterval, "s3-exporter-purge-interval", 1*time.Minute, "timeout for exporting data to s3")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
@@ -118,37 +136,37 @@ func Init() {
 	flag.Parse()
 	flag.VisitAll(grabFlagProperties)
 	allArgs := "[" + strings.Join(args, ",")[1:] + "]"
-	Info("All args: %s",allArgs)
+	info("All args: %s",allArgs)
 
 	marshal, err := json.Marshal(Config)
 	if err != nil {
-		Fatal("marshal config failed: %v", err)
+		fatal("marshal config failed: %v", err)
 	}
 
 	V5("V5 mode activated")
 	V5("common configuration loaded: %v", string(marshal))
 
 	if Config.Device == "" {
-		Fatal("device argument must be supplied")
+		fatal("device argument must be supplied")
 	}
 
 	processors := strings.Split(Config.HarProcessors, ",")
 	for i := 0; i < len(processors); i++ {
 		processor := processors[i]
 		if !supportedProcessors[processor] {
-			Fatal("invalid har processor specified %v",processor)
+			fatal("invalid har processor specified %v",processor)
 		}
 	}
 	for _,processor := range processors {
 		if processor == "s3" && len(Config.S3ExporterBucketName) == 0 {
-			Fatal("S3 exporter is active and S3 bucket in not defined. Use -s3-bucket-name <my_bucket_name>")
+			fatal("S3 exporter is active and S3 bucket in not defined. Use -s3-bucket-name <my_bucket_name>")
 		}
 	}
 	if Config.Capture != "tshark" && Config.Capture != "httpdump" {
-		Fatal("invalid capture specified")
+		fatal("invalid capture specified")
 	}
 	if Config.Hosts == "" {
-		Info("hosts were not supplied, will capture all IPs on port 80")
+		info("hosts were not supplied, will capture all IPs on port 80")
 	}
 
 	go snapshotTimer()

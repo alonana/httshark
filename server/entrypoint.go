@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/core/aggregated"
+	"github.com/alonana/httshark/core/log"
 	"github.com/alonana/httshark/exporters"
 	"github.com/alonana/httshark/httpdump"
 	"github.com/alonana/httshark/tshark"
@@ -34,49 +35,54 @@ func processHealthMonitor(duration time.Duration) {
 		var numOfGoroutines = runtime.NumGoroutine()
 		//var memStats runtime.MemStats
 		//runtime.ReadMemStats(&memStats)
-		core.Info("Number of goroutines: %d",numOfGoroutines)
+		//core.Info("Number of goroutines: %d",numOfGoroutines)
 		//core.Info("Mem stats: %v",memStats)
 		core.CloudWatchClient.PutMetric("num_of_goroutines", "Count",  float64(numOfGoroutines), "httshark_health_monitor")
 	}
 }
 func (p *EntryPoint) Run() {
 	core.Init()
-	core.Info("Starting. Instance Id: %v, PID: %v",core.Config.InstanceId,os.Getpid())
+	logger := log.NewLogger()
+	logger.Warn(fmt.Sprintf("Starting. Instance Id: %v, PID: %v",core.Config.InstanceId,os.Getpid()))
 	aggregated.InitLog()
 
 	http.HandleFunc("/", p.health)
-	if core.Config.ActivateHealthMonitor {
-		go processHealthMonitor(core.Config.HealthMonitorInterval)
-	}
 
+	//if core.Config.ActivateHealthMonitor {
+	//	go processHealthMonitor(core.Config.HealthMonitorInterval)
+	//}
 
+    /*
 	go func() {
 		port := 6060 + core.Config.InstanceId
 		hostAndPort := fmt.Sprintf("localhost:%v", port)
-		core.Warn("HTTP SERVER: %v", http.ListenAndServe(hostAndPort, nil))
+		//core.warn("HTTP SERVER: %v", http.ListenAndServe(hostAndPort, nil))
 	}()
 
-	p.exporterProcessor = exporters.CreateProcessor()
+     */
+
+	p.exporterProcessor = exporters.CreateProcessor(logger)
 	p.exporterProcessor.Start()
 
 	if core.Config.Capture == "httpdump" {
 		httpdump.RunHttpDump(p.exporterProcessor.Queue)
 	} else {
-		p.correlatorProcessor = correlator.Processor{Processor: p.exporterProcessor.Queue}
+		p.correlatorProcessor = correlator.Processor{Processor: p.exporterProcessor.Queue, Logger: logger}
 		p.correlatorProcessor.Start()
 
-		p.bulkProcessor = bulk.Processor{HttpProcessor: p.correlatorProcessor.Queue}
+		p.bulkProcessor = bulk.Processor{HttpProcessor: p.correlatorProcessor.Queue, Logger: logger}
 		p.bulkProcessor.Start()
 
-		p.lineProcessor = line.Processor{BulkProcessor: p.bulkProcessor.Queue}
+		p.lineProcessor = line.Processor{BulkProcessor: p.bulkProcessor.Queue, Logger: logger}
 		p.lineProcessor.Start()
 
 		t := tshark.CommandLine{
 			Processor: p.lineProcessor.Queue,
+			Logger: logger,
 		}
 		err := t.Start()
 		if err != nil {
-			core.Fatal("start command failed: %v", err)
+			logger.Fatal("start command failed: %v", err)
 		}
 	}
 
@@ -84,14 +90,14 @@ func (p *EntryPoint) Run() {
 	signal.Notify(p.signalsChannel, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-p.signalsChannel
 
-	core.Info("Termination initiated")
+	logger.Info("Termination initiated")
 	if core.Config.Capture == "tshark" {
 		p.lineProcessor.Stop()
 		p.bulkProcessor.Stop()
 		p.correlatorProcessor.Stop()
 	}
 	p.exporterProcessor.Stop()
-	core.Info("Terminating complete")
+	logger.Info("Terminating complete")
 }
 
 

@@ -2,6 +2,7 @@ package correlator
 
 import (
 	"github.com/alonana/httshark/core"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -17,6 +18,7 @@ type Processor struct {
 	waitGroup   sync.WaitGroup
 	stopChannel chan bool
 	stopped     bool
+	Logger      *logrus.Logger
 }
 
 func (p *Processor) Start() {
@@ -42,14 +44,14 @@ func (p *Processor) correlate() {
 	for !p.stopped {
 		select {
 		case entry := <-p.entries:
-			core.V5("got http entry %+v", entry)
+			p.Logger.Trace("got http entry %+v", entry)
 			p.updateEntry(&entry)
 			break
 		case <-p.ticker.C:
 			p.checkTimeouts()
 			break
 		case <-p.stopChannel:
-			core.V1("correlator processor stopping")
+			p.Logger.Debug("correlator processor stopping")
 			p.stopped = true
 			break
 		}
@@ -70,7 +72,7 @@ func (p *Processor) updateEntry(entry *interface{}) {
 		return
 	}
 
-	core.Fatal("invalid entry %+v", entry)
+	p.Logger.Fatal("invalid entry %+v", entry)
 }
 
 func (p *Processor) updateRequest(request *core.HttpRequest) {
@@ -85,7 +87,7 @@ func (p *Processor) updateResponse(response *core.HttpResponse) {
 	p.mutex.Unlock()
 
 	if !exists {
-		core.V5("got response without request %+v", response)
+		p.Logger.Trace("got response without request %+v", response)
 		return
 	}
 
@@ -102,7 +104,7 @@ func (p *Processor) updateResponse(response *core.HttpResponse) {
 }
 
 func (p *Processor) checkTimeouts() {
-	core.V2("checking timeouts")
+	p.Logger.Trace("checking timeouts")
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -119,7 +121,7 @@ func (p *Processor) checkTimeouts() {
 		return
 	}
 
-	core.V1("%v expired requests located", len(expired))
+	p.Logger.Debug("%v expired requests located", len(expired))
 	for i := 0; i < len(expired); i++ {
 		stream := expired[i]
 		request := p.requests[stream]

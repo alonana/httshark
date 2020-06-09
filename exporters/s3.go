@@ -10,29 +10,43 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/sirupsen/logrus"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
 
+type Reason int
 
+const (
+	Size Reason = iota
+	Time
+)
+
+func (r Reason) String() string {
+	return []string{"S", "T"}[r]
+}
 
 type S3Client struct {
-	s3Service *s3.S3
+	s3Service  *s3.S3
 	dataHolder map[string][]har.Entry
 	mutex      sync.Mutex
+	timer      *time.Ticker
+	Logger     *logrus.Logger
 }
 
 func (s *S3Client) init()  {
-	s.s3Service = s3.New(session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(true),
+	s.s3Service = s3.New(session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(core.Config.AWSDisableSSL),
 		Region: &core.Config.AWSRegion})))
 	s.dataHolder = make(map[string][]har.Entry)
-	tick := time.NewTicker(core.Config.S3ExporterPurgeInterval)
+	s.timer = time.NewTicker(core.Config.S3ExporterPurgeInterval)
 	for {
 		select {
-		case <-tick.C:
-			s.doExportWrapper()
+		case <-s.timer.C:
+			err := s.doExportWrapper(Time)
+			if err != nil {
+				//TODO -report as severe error
+			}
 		}
 	}
 }
@@ -46,6 +60,7 @@ func (s *S3Client) Process(harData *har.Har) error {
 		entry.Request.AppId.Empty()
 		entry.Request.AppId = nil
 	}
+
 	currentEntries := s.dataHolder[appId]
 	for _, entry := range harData.Log.Entries {
 		currentEntries = append(currentEntries, entry)
@@ -53,7 +68,7 @@ func (s *S3Client) Process(harData *har.Har) error {
 	s.dataHolder[appId] = currentEntries
 	numOfEntries := s.getNumOfEntries()
 	if numOfEntries > core.Config.S3ExporterMaxNumOfEntries {
-		err := s.doExport(numOfEntries)
+		err := s.doExport(numOfEntries,Size)
 		if err != nil {
 			return fmt.Errorf("failed to export har data: %v", err)
 		}
@@ -61,14 +76,15 @@ func (s *S3Client) Process(harData *har.Har) error {
 	return nil
 }
 
-func getFileName(entriesCount int) string {
+func getFileName(entriesCount int,reason Reason) string {
 	gzipExt := ""
 	if core.Config.S3ExporterShouldCompress {
 		gzipExt = ".gzip"
 	}
-	return fmt.Sprintf("%s__%s__%s__%s.har%s",core.Config.DCVAName,
+	return fmt.Sprintf("%s__%s__%s__%s__%s.har%s",core.Config.DCVAName,
 		strconv.FormatInt(int64(core.Config.InstanceId),10),
 		strconv.FormatInt(int64(entriesCount),10),
+		reason.String(),
 		strconv.FormatInt(time.Now().UnixNano(),10),
 		gzipExt)
 }
@@ -91,7 +107,7 @@ func compress(data []byte,fileName string) ([]byte,error) {
 
 func (s *S3Client) pushToS3(data []byte,fileName string) error {
 	_, err := s.s3Service.PutObject(&s3.PutObjectInput{
-		Body:   strings.NewReader(string(data)),
+		Body: bytes.NewReader(data),
 		Bucket: &core.Config.S3ExporterBucketName,
 		Key:    &fileName,
 	})
@@ -103,13 +119,13 @@ func (s *S3Client) pushToS3(data []byte,fileName string) error {
 	return nil
 }
 
-func (s *S3Client) doExport(numOfEntries int) error {
+func (s *S3Client) doExport(numOfEntries int,reason Reason) error {
 	if numOfEntries > 0 {
 		data, err := json.Marshal(s.dataHolder)
 		if err != nil {
 			return fmt.Errorf("marshal har failed: %v", err)
 		}
-		fileName := getFileName(numOfEntries)
+		fileName := getFileName(numOfEntries,reason)
 		if core.Config.S3ExporterShouldCompress {
 			compressedData, err := compress(data, fileName)
 			if err != nil {
@@ -140,10 +156,10 @@ func (s *S3Client) getNumOfEntries() int {
 	return numOfEntries
 }
 
-func (s *S3Client) doExportWrapper() error {
+func (s *S3Client) doExportWrapper(reason Reason) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	err := s.doExport(s.getNumOfEntries())
+	err := s.doExport(s.getNumOfEntries(),reason)
 	return err
 }
 

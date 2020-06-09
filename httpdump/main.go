@@ -47,7 +47,7 @@ func getHostFilter(host core.Host) string {
 func openSingleDevice(device string) (localPackets chan gopacket.Packet, err error) {
 	defer func() {
 		if msg := recover(); msg != nil {
-			core.Error("open device recover")
+			//core.Error("open device recover")
 			switch x := msg.(type) {
 			case string:
 				err = errors.New(x)
@@ -67,7 +67,7 @@ func openSingleDevice(device string) (localPackets chan gopacket.Packet, err err
 	}
 
 	if err := setDeviceFilter(handle); err != nil {
-		core.Fatal("set capture filter failed: %v", err)
+		//core.Fatal("set capture filter failed: %v", err)
 	}
 	localPackets = listenOneSource(handle)
 	return
@@ -82,7 +82,7 @@ func RunHttpDump(p TransactionProcessor) {
 	var err error
 	packets, err := openSingleDevice(core.Config.Device)
 	if err != nil {
-		core.Fatal("listen on device %v failed, error: %w", core.Config.Device, err)
+		//core.Fatal("listen on device %v failed, error: %w", core.Config.Device, err)
 	}
 
 	var assembler = newTCPAssembler()
@@ -95,7 +95,7 @@ func RunHttpDump(p TransactionProcessor) {
 			core.V2("got packet")
 			// A nil packet indicates the end of a pcap file.
 			if packet == nil {
-				core.Warn("END of PCAP sampling??")
+				//core.Warn("END of PCAP sampling??")
 				continue
 			}
 

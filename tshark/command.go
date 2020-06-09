@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/exporters"
+	"github.com/sirupsen/logrus"
 	"io"
 	"os/exec"
 	"strconv"
@@ -17,6 +18,8 @@ const WARNING = "WARNING"
 
 type CommandLine struct {
 	Processor LineProcessor
+	Logger      *logrus.Logger
+
 }
 
 func (c *CommandLine) Start() error {
@@ -41,7 +44,7 @@ func (c *CommandLine) Start() error {
 	args += " -e http.response.code"
 	args += " -e http.response.line"
 
-	core.Info("running command: %v", args)
+	c.Logger.Info("running command: %v", args)
 	cmd := exec.Command("sh", "-c", args)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -76,7 +79,7 @@ func (c *CommandLine) getFilter() string {
 		}
 		bpf = fmt.Sprintf("tcp && ((%v)", strings.Join(filters, ") || (")) + ")"
 	}
-	core.Info("BPF  = %v",bpf)
+	c.Logger.Info("BPF  = %v",bpf)
 	return bpf
 }
 
@@ -106,7 +109,7 @@ func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			core.Fatal("read command output failed: %v", err)
+			c.Logger.Fatal("read command output failed: %v", err)
 			break
 		}
 		if len(line) > 0 && line[len(line)-1] == '\n' {
@@ -119,7 +122,7 @@ func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 			// this is the error stream - we want to extract a subset of the data into the log
 			var packetDropMsg = strings.Index(line,PACKET_DROP) == 0
 			if packetDropMsg || strings.Index(line,WARNING) != -1 {
-				core.Info("Error stream: %v",line)
+				c.Logger.Warn("Error stream: %v",line)
 				if packetDropMsg {
 					left := strings.LastIndex(line,"(")
 					right := strings.LastIndex(line,")")
