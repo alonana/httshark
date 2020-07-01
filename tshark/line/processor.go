@@ -1,6 +1,7 @@
 package line
 
 import (
+	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/sirupsen/logrus"
 	"strings"
@@ -50,7 +51,7 @@ func (p *Processor) aggregate() {
 			}
 			if line == "  }" {
 				data := strings.Join(lines, "")
-				p.Logger.Trace("json data is %v", data)
+				p.Logger.Trace(fmt.Sprintf("json data is %v", data))
 				p.BulkProcessor(data)
 				lines = nil
 				collect = false
@@ -58,7 +59,7 @@ func (p *Processor) aggregate() {
 			break
 
 		case <-p.stopChannel:
-			p.Logger.Debug("stdout line processor stopping")
+			p.Logger.Debug(fmt.Sprintf("stdout line processor stopping"))
 			p.stopped = true
 			break
 		}

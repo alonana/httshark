@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 )
-const NAMESPACE = "httshark_stats"
 
 type PeriodicSiteStats struct {
 	mutex                   sync.Mutex
@@ -30,9 +29,9 @@ func (p *PeriodicSiteStats) init() {
 			case <-tick.C:
 				    fmt.Printf("cloud_watch_sites_stats. Number of HTTP exchange: %d, size of HTTP exchange: %d\n", p.totalTransactions,p.totalSize)
 					core.CloudWatchClient.PutMetric("total_transactions","Count",
-						float64(p.totalTransactions),NAMESPACE)
+						float64(p.totalTransactions),core.NAMESPACE)
 					core.CloudWatchClient.PutMetric("total_size","Bytes",
-						float64(p.totalSize),NAMESPACE)
+						float64(p.totalSize),core.NAMESPACE)
 					p.reset()
 			}
 		}

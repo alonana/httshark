@@ -4,16 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/alonana/httshark/core"
-	"github.com/alonana/httshark/exporters"
 	"github.com/sirupsen/logrus"
 	"io"
+	"os"
 	"os/exec"
-	"strconv"
 	"strings"
+	"time"
 )
 
 type LineProcessor func(line string)
-const PACKET_DROP = "Packets received/dropped on interface"
 const WARNING = "WARNING"
 
 type CommandLine struct {
@@ -44,7 +43,7 @@ func (c *CommandLine) Start() error {
 	args += " -e http.response.code"
 	args += " -e http.response.line"
 
-	c.Logger.Info("running command: %v", args)
+	c.Logger.Info(fmt.Sprintf("running command: %v", args))
 	cmd := exec.Command("sh", "-c", args)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -79,7 +78,6 @@ func (c *CommandLine) getFilter() string {
 		}
 		bpf = fmt.Sprintf("tcp && ((%v)", strings.Join(filters, ") || (")) + ")"
 	}
-	c.Logger.Info("BPF  = %v",bpf)
 	return bpf
 }
 
@@ -88,7 +86,7 @@ func (c *CommandLine) GetHostFilter(host core.Host) string {
 		return fmt.Sprintf("port %v", host.Port)
 	}
 
-	return fmt.Sprintf("port %v && host %v", host.Port, host.Ip)
+	return fmt.Sprintf("((src port %v && src host %v) || (dst port %v && dst host %v))", host.Port, host.Ip, host.Port, host.Ip)
 }
 
 func (c *CommandLine) getPortsFilter() string {
@@ -103,36 +101,47 @@ func (c *CommandLine) getPortsFilter() string {
 	filter := strings.Join(strings.Split(core.Config.Hosts, ","), " or host ")
 	return fmt.Sprintf("and (host %v)", filter)
 }
-
+func (c *CommandLine)persistDroppedPacketsPct(packetDropReport string) {
+	f, err := os.OpenFile(core.PacketDropFileName,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		c.Logger.Error(fmt.Sprintf("Failed to open dropped packets file: %v",err))
+		return
+	}
+	defer f.Close()
+	nowStr :=  time.Now().Format("2006-01-02 15:04:05")
+	line := fmt.Sprintf("%v | %v\n",nowStr,packetDropReport)
+	if _, err := f.WriteString(line); err != nil {
+		c.Logger.Error(fmt.Sprintf("Failed to write to dropped packets file: %v",err))
+		return
+	}
+	c.Logger.Info(fmt.Sprintf("Managed to persist dumpcap report -> %v",packetDropReport))
+}
 func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 	reader := bufio.NewReader(stream)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			c.Logger.Fatal("read command output failed: %v", err)
-			break
+			c.Logger.Fatal(fmt.Sprintf("read command output failed: %v", err))
+			if collectJson {
+				break
+			}
 		}
 		if len(line) > 0 && line[len(line)-1] == '\n' {
 			line = line[:len(line)-1]
 		}
-		core.V5("read line: %v", line)
+		c.Logger.Trace(fmt.Sprintf("read line: %v", line))
 		if collectJson {
 			c.Processor(line)
 		} else {
 			// this is the error stream - we want to extract a subset of the data into the log
-			var packetDropMsg = strings.Index(line,PACKET_DROP) == 0
+			var packetDropMsg = strings.Index(line,core.PacketDrop) == 0
 			if packetDropMsg || strings.Index(line,WARNING) != -1 {
-				c.Logger.Warn("Error stream: %v",line)
+				c.Logger.Warn(fmt.Sprintf("Error stream: %v",line))
 				if packetDropMsg {
-					left := strings.LastIndex(line,"(")
-					right := strings.LastIndex(line,")")
-					pct,_ := strconv.Atoi(line[left:right-1])
-					pctFloat := float64(pct)
-					core.CloudWatchClient.PutMetric("dropped_packets","Percent",
-						pctFloat,exporters.NAMESPACE)
+					c.persistDroppedPacketsPct(line)
 				}
 			}
-
 		}
 	}
 }

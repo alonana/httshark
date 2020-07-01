@@ -3,9 +3,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"log"
 	"time"
 )
+
+const PacketDrop = "Packets received/dropped on interface"
+const PacketDropFileName = "/var/log/drooped_packets.txt"
+const NAMESPACE = "httshark_stats"
 
 
 type AWSCloudWatchClient struct {
@@ -14,7 +17,7 @@ type AWSCloudWatchClient struct {
 
 var  CloudWatchClient  = AWSCloudWatchClient{}
 
-func (c *AWSCloudWatchClient)PutMetric(metricName string, unitName string, metricValue float64, namespace string) {
+func (c *AWSCloudWatchClient)PutMetric(metricName string, unitName string, metricValue float64, namespace string) (err error)  {
 	if c.watchService == nil {
 		c.watchService = cloudwatch.New(session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(Config.AWSDisableSSL),
 			Region: &Config.AWSRegion})))
@@ -36,9 +39,6 @@ func (c *AWSCloudWatchClient)PutMetric(metricName string, unitName string, metri
 		},
 		Namespace: aws.String(namespace),
 	}
-
-	_, err := c.watchService.PutMetricData(params)
-	if err != nil {
-		log.Printf("Failure to put cloudwatch metric: %s", err)
-	}
+	_, err = c.watchService.PutMetricData(params)
+	return  err
 }

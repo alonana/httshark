@@ -28,6 +28,8 @@ type Configuration = struct {
 	SendSiteStatsToCloudWatch   bool
 	S3ExporterShouldCompress    bool
 	AWSDisableSSL               bool
+	UseCloudWatchLoggerHook     bool
+	IgnoreHealthCheck           bool
 	Hosts                       string
 	KeepContentTypes            string
 	HarProcessors               string
@@ -97,11 +99,13 @@ func Init() {
 	flag.IntVar(&Config.NetworkStreamChannelSize, "network-stream-channel-size", 1024, "network stream channel size")
 	flag.IntVar(&Config.S3ExporterMaxNumOfEntries, "s3-exporter-max-num-of-entries-to-hold", 1024, "max number of entries to accumulate before sending to s3")
 	flag.BoolVar(&Config.AWSDisableSSL, "aws-disable-ssl", false, "disable ssl while using AWS API")
+	flag.BoolVar(&Config.UseCloudWatchLoggerHook, "use-cw-logger-hook", true, "Use CW logger hook")
 	flag.BoolVar(&Config.SplitByHost, "split-by-host", true, "split output files by the request host")
 	flag.BoolVar(&Config.SplitByAppId, "split-by-appid", true, "split output files by the app id")
 	flag.BoolVar(&Config.ActivateHealthMonitor, "activate-health-monitor", true, "send health stats to AWS CloudWatch")
 	flag.BoolVar(&Config.S3ExporterShouldCompress, "s3-exporter-compress", true, "compress the HAR before you dump it to s3")
 	flag.BoolVar(&Config.SendSiteStatsToCloudWatch, "send-sites-stats-to-cloudwatch", true, "send site stats stats to AWS CloudWatch")
+	flag.BoolVar(&Config.IgnoreHealthCheck, "ignore-hc", true, "do not dump cwaf HC calls")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "har files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
 	flag.StringVar(&Config.KeepContentTypes, "keep-content-type", "json", "comma separated list of content type whose body should be kept (case insensitive, using include for match)")
@@ -122,7 +126,7 @@ func Init() {
 	flag.DurationVar(&Config.ResponseTimeout, "response-timeout", time.Minute, "timeout for waiting for response")
 	flag.DurationVar(&Config.S3ExporterPurgeInterval, "s3-exporter-purge-interval", 1*time.Minute, "timeout for exporting data to s3")
 	flag.DurationVar(&Config.ResponseCheckInterval, "response-check-interval", 10*time.Second, "check timed out responses interval")
-	flag.DurationVar(&Config.HealthMonitorInterval, "health-monitor-interval", 1*time.Minute, "publish system health stats interval")
+	flag.DurationVar(&Config.HealthMonitorInterval, "health-monitor-interval", 1*time.Minute, "publish I am alive")
 	flag.DurationVar(&Config.CloudWatchStatsInterval, "cloud-watch-stats-interval", 1*time.Minute, "publish traffic stats to cloud watch interval")
 	flag.DurationVar(&Config.ExportInterval, "export-interval", 10*time.Second, "export HAL to file interval")
 	flag.DurationVar(&Config.StatsInterval, "stats-interval", 10*time.Second, "print stats exporter interval")

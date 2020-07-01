@@ -50,7 +50,7 @@ func (p *Processor) parseJson() {
 			if err == nil {
 				p.convert(&entry, data)
 			} else {
-				p.Logger.Warn("parse tshark stdout JSON %v failed:%v", data, err)
+				p.Logger.Warn(fmt.Sprintf("parse tshark stdout JSON %v failed:%v", data, err))
 			}
 			break
 
@@ -70,18 +70,18 @@ func (p *Processor) convert(tsharkJson *types.Stdout, originalEntry string) {
 
 	entryTime, err := p.parseTime(&layers)
 	if err != nil {
-		p.Logger.Warn("parse time in %+v failed: %v", tsharkJson, err)
+		p.Logger.Warn(fmt.Sprintf("parse time in %+v failed: %v", tsharkJson, err))
 		return
 	}
 
 	if len(layers.TcpStream) == 0 {
-		p.Logger.Warn("missing tcp stream in %+v", tsharkJson)
+		p.Logger.Warn(fmt.Sprintf("missing tcp stream in %+v", tsharkJson))
 		return
 	}
 
 	stream, err := strconv.Atoi(layers.TcpStream[0])
 	if err != nil {
-		p.Logger.Warn("parse tcp stream in %+v failed: %v", tsharkJson, err)
+		p.Logger.Warn(fmt.Sprintf("parse tcp stream in %+v failed: %v", tsharkJson, err))
 		return
 	}
 
@@ -123,7 +123,7 @@ func (p *Processor) convert(tsharkJson *types.Stdout, originalEntry string) {
 		dstPort := layers.DstPort[0]
 		dstPortInt,err := strconv.Atoi(dstPort)
 		if err != nil {
-			p.Logger.Warn("parse dst port in %+v failed: %v", tsharkJson, err)
+			p.Logger.Warn(fmt.Sprintf("parse dst port in %+v failed: %v", tsharkJson, err))
 			return
 		}
 		ipAndPort := core.HttpIpAndPort{DstIP: dstIp, DstPort: dstPortInt}
@@ -139,13 +139,13 @@ func (p *Processor) convert(tsharkJson *types.Stdout, originalEntry string) {
 		p.HttpProcessor(request)
 	} else if len(layers.IsResponse) > 0 {
 		if len(layers.ResponseCode) == 0 {
-			p.Logger.Warn("missing response code in %+v", tsharkJson)
+			p.Logger.Warn(fmt.Sprintf("missing response code in %+v", tsharkJson))
 			return
 		}
 
 		code, err := strconv.Atoi(layers.ResponseCode[0])
 		if err != nil {
-			p.Logger.Warn("parse response code in %+v failed: %v", tsharkJson, err)
+			p.Logger.Warn(fmt.Sprintf("parse response code in %+v failed: %v", tsharkJson, err))
 			return
 		}
 

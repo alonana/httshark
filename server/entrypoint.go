@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/alonana/httshark/core"
 	"github.com/alonana/httshark/core/aggregated"
@@ -11,11 +12,14 @@ import (
 	"github.com/alonana/httshark/tshark/bulk"
 	"github.com/alonana/httshark/tshark/correlator"
 	"github.com/alonana/httshark/tshark/line"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -26,6 +30,16 @@ type EntryPoint struct {
 	bulkProcessor       bulk.Processor
 	lineProcessor       line.Processor
 	exporterProcessor   *exporters.Processor
+}
+
+func IAmAlive(duration time.Duration, logger *logrus.Logger) {
+	timer := time.NewTicker(duration)
+	for {
+		select {
+		case <-timer.C:
+			logger.Warn(fmt.Sprintf("httshark. dcva: %v, pid: %v. Oper Status = OK",core.Config.DCVAName, os.Getpid()))
+		}
+	}
 }
 
 // processHealthMonitor publishes health stats info to AWS CloudWatch every "duration"
@@ -46,20 +60,17 @@ func (p *EntryPoint) Run() {
 	logger.Warn(fmt.Sprintf("Starting. Instance Id: %v, PID: %v",core.Config.InstanceId,os.Getpid()))
 	aggregated.InitLog()
 
-	http.HandleFunc("/", p.health)
-
-	//if core.Config.ActivateHealthMonitor {
-	//	go processHealthMonitor(core.Config.HealthMonitorInterval)
-	//}
+	go IAmAlive(core.Config.HealthMonitorInterval,logger)
+	go reportDroppedPackets(logger)
 
     /*
 	go func() {
 		port := 6060 + core.Config.InstanceId
 		hostAndPort := fmt.Sprintf("localhost:%v", port)
-		//core.warn("HTTP SERVER: %v", http.ListenAndServe(hostAndPort, nil))
+		logger.Warn(fmt.Sprintf("HTTP SERVER: %v", http.ListenAndServe(hostAndPort, nil)))
 	}()
-
-     */
+	http.HandleFunc("/", p.health)
+	*/
 
 	p.exporterProcessor = exporters.CreateProcessor(logger)
 	p.exporterProcessor.Start()
@@ -82,22 +93,21 @@ func (p *EntryPoint) Run() {
 		}
 		err := t.Start()
 		if err != nil {
-			logger.Fatal("start command failed: %v", err)
+			logger.Fatal(fmt.Sprintf("start command failed: %v", err))
 		}
 	}
-
 	p.signalsChannel = make(chan os.Signal, 1)
 	signal.Notify(p.signalsChannel, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-p.signalsChannel
 
-	logger.Info("Termination initiated")
+	logger.Info(fmt.Sprintf("Termination initiated. PID: %v",os.Getpid()))
 	if core.Config.Capture == "tshark" {
 		p.lineProcessor.Stop()
 		p.bulkProcessor.Stop()
 		p.correlatorProcessor.Stop()
 	}
 	p.exporterProcessor.Stop()
-	logger.Info("Terminating complete")
+	logger.Info(fmt.Sprintf("Terminating complete"))
 }
 
 
@@ -110,6 +120,73 @@ func (p *EntryPoint) health(w http.ResponseWriter, _ *http.Request) {
 	}
 	w.WriteHeader(500)
 	_, _ = w.Write([]byte(err.Error()))
+}
+
+//dumpcapDropPacketReport example:
+//Packets received/dropped on interface 'eno2': 7467018/3189 (pcap:3189/dumpcap:0/flushed:0/ps_ifdrop:0) (100.0%)
+func getPacketDropStats(dumpcapDropPacketReport string) (received float64, dropped float64) {
+	leftIdx := strings.Index(dumpcapDropPacketReport,":") + 1
+	rightIdx := strings.Index(dumpcapDropPacketReport,"(")
+	temp:= strings.TrimSpace(dumpcapDropPacketReport[leftIdx:rightIdx])
+	slashIdx := strings.Index(temp,"/")
+	received, _ = strconv.ParseFloat(temp[0:slashIdx], 64)
+	dropped, _ = strconv.ParseFloat(temp[slashIdx+1:], 64)
+	return received,dropped
+}
+
+func reportDroppedPackets(logger *logrus.Logger) {
+	if fileExists(core.PacketDropFileName){
+		lines,err := readLines(core.PacketDropFileName)
+		if err != nil {
+			logger.Error("Failed to read dropped packets file")
+			return
+		}
+		lastLine := lines[len(lines)-1]
+		pipeIdx := strings.Index(lastLine,"|")
+		dumpcapReport := lastLine[pipeIdx:]
+		received,dropped := getPacketDropStats(dumpcapReport)
+		errCnt := 0
+		err = core.CloudWatchClient.PutMetric(fmt.Sprintf("%v_received_packets", core.Config.DCVAName), "Count", received, core.NAMESPACE)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to put packet stats (received) in CW: %v",err))
+			errCnt++
+		}
+		err = core.CloudWatchClient.PutMetric(fmt.Sprintf("%v_dropped_packets",core.Config.DCVAName),"Count",dropped,core.NAMESPACE)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to put packet stats (dropped) in CW: %v",err))
+			errCnt++
+		}
+		if errCnt == 0 {
+			logger.Info(fmt.Sprintf("Packet metric stats was sent to CloudWatch. received: %v, dropped: %v",received,dropped))
+		}
+	}
+}
+
+// readLines reads a whole file into memory
+// and returns a slice of its lines.
+func readLines(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return lines, scanner.Err()
+}
+
+// fileExists checks if a file exists and is not a directory before we
+// try using it to prevent further errors.
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
 
 

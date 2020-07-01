@@ -19,7 +19,8 @@ func NewLogger() *logrus.Logger {
 	//  TODO: read from config
 	level, err := logrus.ParseLevel("info")
 	if err != nil {
-		//TODO
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 	formatter := &logrus.TextFormatter{
 		TimestampFormat:        "02-01-2006 15:04:05",
@@ -45,17 +46,22 @@ func NewLogger() *logrus.Logger {
 		MaxSize: core.Config.RotateFileMaxSize, MaxBackups: core.Config.RotateFileMaxBackups,
 		MaxAge: core.Config.RotateFileMaxAge,Level: logrus.DebugLevel,Formatter: formatter})
 	if err != nil {
-		//TODO
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 	logger.AddHook(rotateFileHook)
-
-	session := session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(core.Config.AWSDisableSSL),
-		Region: &core.Config.AWSRegion,CredentialsChainVerboseErrors: aws.Bool(true)}))
-	cloudWatchHook, err := NewBatchingHook("httshark", core.Config.DCVAName, session, 15)
-	if err != nil {
-		//TODO
+	if core.Config.UseCloudWatchLoggerHook {
+		session := session.Must(session.NewSession(&aws.Config{DisableSSL: aws.Bool(core.Config.AWSDisableSSL),
+			Region: &core.Config.AWSRegion,CredentialsChainVerboseErrors: aws.Bool(true)}))
+		streamName := fmt.Sprintf("%v_%v",core.Config.DCVAName,os.Getpid())
+		cloudWatchHook, err := NewBatchingHook("jordan_river_log_group", streamName, session, 15)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		logger.AddHook(cloudWatchHook)
 	}
-	logger.AddHook(cloudWatchHook)
+
 
 	Logger = logger
 	return Logger

@@ -67,7 +67,7 @@ func (p *Processor) process(harFile *har.Har) error {
 		harProcessor := p.processors[i]
 		err := harProcessor(harFile)
 		if err != nil {
-			p.Logger.Warn("process har failed: %v", err)
+			p.Logger.Warn(fmt.Sprintf("process har failed: %v", err))
 		}
 	}
 	return nil
@@ -143,29 +143,50 @@ func (p *Processor) aggregate() {
 
 	p.waitGroup.Done()
 }
+// we want to ignore Cloud WAF Health Check
+func shouldDumpEntry(entry har.Entry) bool {
+	if core.Config.IgnoreHealthCheck {
+		for i := 0; i < len(entry.Request.Headers); i++ {
+			pair := entry.Request.Headers[i]
+			if pair.Name == "Host" && pair.Value == "HOST_FOR_HC" {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 func (p *Processor) dumpTransactions(transactions []core.HttpTransaction) {
 	if len(transactions) == 0 {
-		p.Logger.Info("no transactions dumped")
+		p.Logger.Info(fmt.Sprintf("no transactions dumped"))
 		return
 	}
-
-	entries := make([]har.Entry, len(transactions))
-	for i := 0; i < len(transactions); i++ {
-		entries[i] = p.convert(transactions[i])
+	var entries []har.Entry
+	idx := 0
+	numOfIgnoredEntries := 0
+	for idx < len(transactions) {
+		entry := p.convert(transactions[idx])
+		if shouldDumpEntry(entry) {
+			entries = append(entries,entry)
+		} else {
+			numOfIgnoredEntries++
+		}
+		idx++
 	}
-
 	harFiles := p.getHarFiles(entries)
 	for i := 0; i < len(harFiles); i++ {
 		harData := harFiles[i]
 		err := p.process(&harData)
 		if err != nil {
-			p.Logger.Fatal("marshal har failed: %v", err)
+			p.Logger.Fatal(fmt.Sprintf("marshal har failed: %v", err))
 		}
 	}
-
-	p.count += uint64(len(transactions))
-	p.Logger.Info("%v total transactions dumped so far", p.count)
+	p.count += uint64(len(transactions) - numOfIgnoredEntries)
+	ignoredPct := int((float64(numOfIgnoredEntries)/float64(len(transactions))) * 100)
+	p.Logger.Info(fmt.Sprintf("%v total transactions dumped so far. [current cycle: %v, ignored transactions: %v (~ %v%%)]",
+		p.count,
+		len(transactions),
+		numOfIgnoredEntries,ignoredPct))
 }
 
 func (p *Processor) getHarFiles(entries []har.Entry) []har.Har {
