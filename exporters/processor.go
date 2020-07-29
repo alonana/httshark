@@ -148,8 +148,9 @@ func shouldDumpEntry(entry har.Entry) bool {
 	if core.Config.IgnoreHealthCheck {
 		for i := 0; i < len(entry.Request.Headers); i++ {
 			pair := entry.Request.Headers[i]
-			if pair.Name == "Host" && pair.Value == "HOST_FOR_HC" {
-				return false
+			if (pair.Name == "Host" && pair.Value == "HOST_FOR_HC") ||
+			   (pair.Name == "X-RDWR-HC" && pair.Value == "health check") {
+				  return false
 			}
 		}
 	}

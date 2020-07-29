@@ -30,6 +30,7 @@ type Configuration = struct {
 	AWSDisableSSL               bool
 	UseCloudWatchLoggerHook     bool
 	IgnoreHealthCheck           bool
+	BPFType                     string
 	Hosts                       string
 	KeepContentTypes            string
 	HarProcessors               string
@@ -106,9 +107,10 @@ func Init() {
 	flag.BoolVar(&Config.S3ExporterShouldCompress, "s3-exporter-compress", true, "compress the HAR before you dump it to s3")
 	flag.BoolVar(&Config.SendSiteStatsToCloudWatch, "send-sites-stats-to-cloudwatch", true, "send site stats stats to AWS CloudWatch")
 	flag.BoolVar(&Config.IgnoreHealthCheck, "ignore-hc", true, "do not dump cwaf HC calls")
+	flag.StringVar(&Config.BPFType, "bpf-type", "not-strict", "BPF type: strict|not-strict")
 	flag.StringVar(&Config.OutputFolder, "output-folder", ".", "har files output folder")
 	flag.StringVar(&Config.Hosts, "hosts", ":80", "comma separated list of IP:port to sample e.g. 1.1.1.1:80,2.2.2.2:9090. To sample all hosts on port 9090, use :9090")
-	flag.StringVar(&Config.KeepContentTypes, "keep-content-type", "json", "comma separated list of content type whose body should be kept (case insensitive, using include for match)")
+	flag.StringVar(&Config.KeepContentTypes, "keep-content-type", "json,xml", "comma separated list of content type whose body should be kept (case insensitive, using include for match)")
 	flag.StringVar(&Config.Device, "device", "", "interface to use sniffing for")
 	flag.StringVar(&Config.Capture, "capture", "tshark", "capture engine to use, one of tshark,httpdump")
 	flag.StringVar(&Config.LogSnapshotFile, "log-snapshot-file", "snapshot.log", "logs snapshot file name")

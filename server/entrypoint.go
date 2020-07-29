@@ -143,6 +143,9 @@ func reportDroppedPackets(logger *logrus.Logger) {
 		}
 		lastLine := lines[len(lines)-1]
 		pipeIdx := strings.Index(lastLine,"|")
+		if pipeIdx == -1 {
+			return
+		}
 		dumpcapReport := lastLine[pipeIdx:]
 		received,dropped := getPacketDropStats(dumpcapReport)
 		errCnt := 0

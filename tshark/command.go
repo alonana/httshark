@@ -13,12 +13,12 @@ import (
 )
 
 type LineProcessor func(line string)
+
 const WARNING = "WARNING"
 
 type CommandLine struct {
 	Processor LineProcessor
-	Logger      *logrus.Logger
-
+	Logger    *logrus.Logger
 }
 
 func (c *CommandLine) Start() error {
@@ -65,18 +65,19 @@ func (c *CommandLine) Start() error {
 
 	return nil
 }
+
 // build the BPF
 func (c *CommandLine) getFilter() string {
 	bpf := ""
 	hosts := core.ProduceHosts(core.Config.Hosts).GetHosts()
 	if len(hosts) == 1 {
-		bpf =  "tcp && (" + c.GetHostFilter(hosts[0]) + ")"
+		bpf = "tcp && (" + c.GetHostFilter(hosts[0]) + ")"
 	} else {
 		var filters []string
 		for i := 0; i < len(hosts); i++ {
 			filters = append(filters, c.GetHostFilter(hosts[i]))
 		}
-		bpf = fmt.Sprintf("tcp && ((%v)", strings.Join(filters, ") || (")) + ")"
+		bpf = fmt.Sprintf("tcp && (%v)", strings.Join(filters, " || "))
 	}
 	return bpf
 }
@@ -85,8 +86,14 @@ func (c *CommandLine) GetHostFilter(host core.Host) string {
 	if len(host.Ip) == 0 {
 		return fmt.Sprintf("port %v", host.Port)
 	}
+	if core.Config.BPFType == "strict" {
+		return fmt.Sprintf("(src port %v && src host %v) || (dst port %v && dst host %v)", host.Port, host.Ip, host.Port, host.Ip)
+	} else if core.Config.BPFType == "not-strict" {
+		return fmt.Sprintf("(port %v && host %v)", host.Port, host.Ip)
+	} else {
+		panic(fmt.Sprintf("Unsupported BPFType %v. Only strict and not-strict BPF types are supported.", core.Config.BPFType))
+	}
 
-	return fmt.Sprintf("((src port %v && src host %v) || (dst port %v && dst host %v))", host.Port, host.Ip, host.Port, host.Ip)
 }
 
 func (c *CommandLine) getPortsFilter() string {
@@ -101,21 +108,21 @@ func (c *CommandLine) getPortsFilter() string {
 	filter := strings.Join(strings.Split(core.Config.Hosts, ","), " or host ")
 	return fmt.Sprintf("and (host %v)", filter)
 }
-func (c *CommandLine)persistDroppedPacketsPct(packetDropReport string) {
+func (c *CommandLine) persistDroppedPacketsPct(packetDropReport string) {
 	f, err := os.OpenFile(core.PacketDropFileName,
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		c.Logger.Error(fmt.Sprintf("Failed to open dropped packets file: %v",err))
+		c.Logger.Error(fmt.Sprintf("Failed to open dropped packets file: %v", err))
 		return
 	}
 	defer f.Close()
-	nowStr :=  time.Now().Format("2006-01-02 15:04:05")
-	line := fmt.Sprintf("%v | %v\n",nowStr,packetDropReport)
+	nowStr := time.Now().Format("2006-01-02 15:04:05")
+	line := fmt.Sprintf("%v | %v\n", nowStr, packetDropReport)
 	if _, err := f.WriteString(line); err != nil {
-		c.Logger.Error(fmt.Sprintf("Failed to write to dropped packets file: %v",err))
+		c.Logger.Error(fmt.Sprintf("Failed to write to dropped packets file: %v", err))
 		return
 	}
-	c.Logger.Info(fmt.Sprintf("Managed to persist dumpcap report -> %v",packetDropReport))
+	c.Logger.Info(fmt.Sprintf("Managed to persist dumpcap report -> %v", packetDropReport))
 }
 func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 	reader := bufio.NewReader(stream)
@@ -135,9 +142,9 @@ func (c *CommandLine) streamRead(stream io.ReadCloser, collectJson bool) {
 			c.Processor(line)
 		} else {
 			// this is the error stream - we want to extract a subset of the data into the log
-			var packetDropMsg = strings.Index(line,core.PacketDrop) == 0
-			if packetDropMsg || strings.Index(line,WARNING) != -1 {
-				c.Logger.Warn(fmt.Sprintf("Error stream: %v",line))
+			var packetDropMsg = strings.Index(line, core.PacketDrop) == 0
+			if packetDropMsg || strings.Index(line, WARNING) != -1 {
+				c.Logger.Warn(fmt.Sprintf("Error stream: %v", line))
 				if packetDropMsg {
 					c.persistDroppedPacketsPct(line)
 				}
