@@ -97,6 +97,7 @@ func NewBatchingHook(groupName, streamName string, sess *session.Session, batchF
 }
 
 func (h *Hook) Fire(entry *logrus.Entry) error {
+	entry.Message = fmt.Sprintf("pop:%v %v",core.Config.DCVAName,entry.Message)
 	line, err := entry.String()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read entry, %v", err)
@@ -226,6 +227,7 @@ func NewWriterHook(w io.Writer) *WriterHook {
 }
 
 func (h *WriterHook) Fire(entry *logrus.Entry) error {
+	entry.Message = fmt.Sprintf("pop:%v %v",core.Config.DCVAName,entry.Message)
 	line, err := entry.String()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read entry, %v", err)

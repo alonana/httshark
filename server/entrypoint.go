@@ -37,7 +37,7 @@ func IAmAlive(duration time.Duration, logger *logrus.Logger) {
 	for {
 		select {
 		case <-timer.C:
-			logger.Warn(fmt.Sprintf("httshark. dcva: %v, pid: %v. Oper Status = OK",core.Config.DCVAName, os.Getpid()))
+			logger.Warn(fmt.Sprintf("httshark. pid: %v. Oper Status = OK",os.Getpid()))
 		}
 	}
 }
